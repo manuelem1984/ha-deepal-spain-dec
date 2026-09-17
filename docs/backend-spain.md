@@ -115,3 +115,64 @@ userId
 ✅ X-Tsp-User-Token = access_token
 
 ❌ X-Tsp-User-Token = cacToken
+
+---
+
+# Telemetry Inventory
+
+## Battery
+
+- soc
+
+## Range
+
+- remainedPowerMile
+
+## Vehicle
+
+- totalOdometer
+- latestDate
+
+## Climate
+
+- vehicleTemperature
+- innerHumidity
+
+## Charging
+
+- ChrgSts
+- chargDeltMins
+
+## Doors
+
+- driverDoor
+- passengerDoor
+- leftRearDoor
+- rightRearDoor
+
+## Windows
+
+- diverWindow
+- passengerWindow
+- leftRearWindow
+- rightRearWindow
+
+## Locks
+
+- driverDoorLock
+- passengerDoorLock
+
+## TPMS
+
+- lfTyrePressure
+- rfTyrePressure
+- lrTyrePressure
+- rrTyrePressure
+
+## Lights
+
+- highBeam
+- lowBeam
+- positionLamp
+- turnLndicatorLeft
+- turnLndicatorRight
