@@ -1,0 +1,1 @@
+"""Deepal Spain DEC integration."""
