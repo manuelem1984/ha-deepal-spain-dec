@@ -1,9 +1,9 @@
 {
-  "title": "Deepal Spain Integration",
+  "title": "DEC Deepal S05",
   "config": {
     "step": {
       "user": {
-        "title": "Deepal Spain Integration",
+        "title": "DEC Deepal S05",
         "description": "Select the sign-in method used in the official Deepal Spain application.",
         "data": {
           "login_method": "Sign-in method"
