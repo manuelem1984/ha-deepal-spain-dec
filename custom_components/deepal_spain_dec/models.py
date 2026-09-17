@@ -1,67 +1,116 @@
-"""Data models for the Deepal Spain DEC integration."""
+"""Data models for Deepal Spain DEC."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
+
+
+# ------------------------------------------------------------------
+# Authentication
+# ------------------------------------------------------------------
 
 
 @dataclass(slots=True)
 class DeepalSession:
-    """Authentication session returned by the Deepal Spain API."""
+    """Authenticated Deepal session."""
 
     access_token: str
     refresh_token: str | None = None
+
     cac_token: str | None = None
+
     user_id: str | None = None
     ca_user_id: str | None = None
     cac_user_id: str | None = None
 
 
+# ------------------------------------------------------------------
+# Vehicle
+# ------------------------------------------------------------------
+
+
 @dataclass(slots=True)
 class DeepalVehicle:
-    """Vehicle registered in the Deepal account."""
+    """Vehicle information."""
 
     vehicle_id: str
+
     vin: str | None = None
     model_name: str | None = None
-    protocol_type: str | None = None
+
     image_url: str | None = None
+
+    mqtt_enabled: bool = False
+
+
+# ------------------------------------------------------------------
+# Telemetry
+# ------------------------------------------------------------------
 
 
 @dataclass(slots=True)
 class DeepalTelemetry:
-    """Normalized telemetry for a Deepal vehicle."""
+    """Normalized telemetry exposed to Home Assistant."""
 
-    updated_at: datetime | None = None
-
+    # Battery
     battery_level: int | None = None
     estimated_range_km: int | None = None
-    total_mileage_km: float | None = None
-    speed_kmh: float | None = None
 
-    vehicle_connected: bool | None = None
+    # Vehicle
+    connected: bool | None = None
     engine_on: bool | None = None
 
+    mileage_km: float | None = None
+    speed_kmh: float | None = None
+
+    last_update: datetime | None = None
+
+    # Charging
+    charging: bool | None = None
+
+    charge_current: float | None = None
+
+    remaining_charge_minutes: int | None = None
+
+    # Climate
     inside_temperature_c: float | None = None
     outside_temperature_c: float | None = None
+
     cabin_humidity_percent: float | None = None
 
-    charging: bool | None = None
-    charge_cable_connected: bool | None = None
-    remaining_charge_minutes: int | None = None
-    charge_current_a: float | None = None
+    # Doors
+    front_left_door: bool | None = None
+    front_right_door: bool | None = None
 
-    doors_open: dict[str, bool | None] = field(default_factory=dict)
-    doors_locked: dict[str, bool | None] = field(default_factory=dict)
-    windows_open: dict[str, bool | None] = field(default_factory=dict)
+    rear_left_door: bool | None = None
+    rear_right_door: bool | None = None
 
-    tire_pressure_kpa: dict[str, float | None] = field(default_factory=dict)
+    trunk_open: bool | None = None
 
-    high_beam_on: bool | None = None
-    low_beam_on: bool | None = None
-    position_lamp_on: bool | None = None
-    left_turn_signal_on: bool | None = None
-    right_turn_signal_on: bool | None = None
+    # Locks
+    driver_locked: bool | None = None
+    passenger_locked: bool | None = None
 
-    raw: dict = field(default_factory=dict)
+    # Windows
+    front_left_window: bool | None = None
+    front_right_window: bool | None = None
+
+    rear_left_window: bool | None = None
+    rear_right_window: bool | None = None
+
+    # Tyres
+    left_front_tire_pressure: float | None = None
+    right_front_tire_pressure: float | None = None
+
+    left_rear_tire_pressure: float | None = None
+    right_rear_tire_pressure: float | None = None
+
+    # Lights
+    high_beam: bool | None = None
+    low_beam: bool | None = None
+
+    position_lamp: bool | None = None
+
+    left_indicator: bool | None = None
+    right_indicator: bool | None = None
