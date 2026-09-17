@@ -1,0 +1,46 @@
+{
+  "title": "Integración Deepal España",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Integración Deepal España",
+        "description": "Selecciona el método de acceso utilizado en la aplicación oficial de Deepal España.",
+        "data": {
+          "login_method": "Método de acceso"
+        }
+      },
+      "email": {
+        "title": "Acceso mediante correo electrónico",
+        "description": "Introduce el correo electrónico asociado a tu cuenta de Deepal España. Recibirás un código de verificación.",
+        "data": {
+          "email": "Correo electrónico"
+        }
+      },
+      "sms": {
+        "title": "Acceso mediante SMS",
+        "description": "Introduce tu número de móvil español. Puedes escribirlo con o sin el prefijo +34.",
+        "data": {
+          "mobile": "Número de móvil"
+        }
+      },
+      "verification_code": {
+        "title": "Código de verificación",
+        "description": "Introduce el código de seis dígitos recibido.",
+        "data": {
+          "auth_code": "Código de verificación"
+        }
+      }
+    },
+    "error": {
+      "invalid_mobile": "Introduce un número de móvil español válido de nueve dígitos.",
+      "send_code_failed": "No se ha podido enviar el código de verificación.",
+      "too_many_codes": "Se han solicitado demasiados códigos. Inténtalo de nuevo más adelante.",
+      "login_failed": "No se ha podido iniciar sesión. Comprueba el código introducido.",
+      "no_vehicles": "No se han encontrado vehículos asociados a esta cuenta."
+    },
+    "abort": {
+      "already_configured": "Este vehículo ya está configurado.",
+      "authentication_state_missing": "El proceso de autenticación ha caducado. Inicia nuevamente la configuración."
+    }
+  }
+}
