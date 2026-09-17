@@ -15,6 +15,7 @@ from .const import (
     REQUEST_TIMEOUT,
     SPAIN_COUNTRY,
 )
+from .models import DeepalVehicle
 
 
 class DeepalApiError(Exception):
@@ -177,3 +178,44 @@ class DeepalApiClient:
             use_ca_gateway=True,
             include_tsp_token=True,
         )
+
+    async def get_vehicles(self) -> list"""Return vehicles associated with the authenticated account."""
+        data = await self.post(
+            "/intl-app-gw/intl-app-user/api/car/vehicles"
+        )
+
+        if not isinstance(data, list):
+            raise DeepalApiError(
+                "Vehicle response did not contain a list"
+            )
+
+        vehicles: list[DeepalVehicle] = []
+
+        for item in data:
+            if not isinstance(item, dict):
+                continue
+
+            vehicle_id = item.get("carId")
+
+            if vehicle_id is None:
+                continue
+
+            vehicles.append(
+                DeepalVehicle(
+                    vehicle_id=str(vehicle_id),
+                    vin=item.get("vin"),
+                    model_name=item.get("modelName"),
+                    image_url=(
+                        item.get("vehicleImageUrl")
+                        or item.get("imageUrl")
+                        or item.get("carImageUrl")
+                        or item.get("modelImageUrl")
+                    ),
+                    mqtt_enabled=(
+                        str(item.get("protocolType") or "").upper()
+                        == "MQTT"
+                    ),
+                )
+            )
+
+        return vehicles
