@@ -10,4 +10,4 @@ https://t.me/deepalespana_general
 
 ## Estado
 
-Versión inicial en desarrollo.
+v1.0.0 — Login por email/SMS, descubrimiento de vehículo, telemetría vía MQTT (batería, autonomía, climatización, puertas, ventanas, cierres, neumáticos y luces) y actualización manual desde Home Assistant.
