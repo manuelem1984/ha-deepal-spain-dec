@@ -6,6 +6,7 @@ import asyncio
 from datetime import UTC, datetime
 import gzip
 import json
+import logging
 import ssl
 import struct
 import time
@@ -17,8 +18,22 @@ from .models import DeepalTelemetry
 from .telemetry import parameters_to_telemetry
 
 
+_LOGGER = logging.getLogger(__name__)
+
 MQTT_CONNECTION_TIMEOUT = 15
 MQTT_TELEMETRY_TIMEOUT = 18
+
+# service_code values currently mapped into DeepalTelemetry.
+# Anything outside this set is logged (at debug level) but discarded,
+# so it's easy to spot new services the vehicle exposes.
+KNOWN_SERVICE_CODES = {
+    None,
+    "car_condition",
+    "BDC_Service",
+    "BMS_Service",
+    "OBC_Service",
+    "THU_Service",
+}
 
 
 @dataclass(slots=True)
@@ -526,18 +541,24 @@ def extract_telemetry_parameters(
             service_code = item.get("service_code")
             item_parameters = item.get("params")
 
-            if service_code not in {
-                None,
-                "car_condition",
-                "BDC_Service",
-                "BMS_Service",
-                "OBC_Service",
-                "THU_Service",
-            }:
-                continue
-
             if isinstance(item_parameters, dict):
+                if service_code not in KNOWN_SERVICE_CODES:
+                    _LOGGER.debug(
+                        "Deepal MQTT: unmapped service_code=%s "
+                        "keys=%s",
+                        service_code,
+                        sorted(item_parameters.keys()),
+                    )
+                    continue
+
                 parameters.update(item_parameters)
+            elif service_code not in KNOWN_SERVICE_CODES:
+                _LOGGER.debug(
+                    "Deepal MQTT: unmapped service_code=%s "
+                    "(no dict params, raw=%r)",
+                    service_code,
+                    item_parameters,
+                )
 
     return parameters
 
@@ -679,6 +700,10 @@ class DeepalMqttClient:
                     topic.endswith("/properties/get/res")
                     and len(partial_parameters) > 10
                 ):
+                    _LOGGER.debug(
+                        "Deepal MQTT: mapped keys received=%s",
+                        sorted(partial_parameters.keys()),
+                    )
                     return parameters_to_telemetry(
                         partial_parameters
                     )
@@ -687,11 +712,19 @@ class DeepalMqttClient:
                     condition_requested
                     and len(partial_parameters) > 30
                 ):
+                    _LOGGER.debug(
+                        "Deepal MQTT: mapped keys received=%s",
+                        sorted(partial_parameters.keys()),
+                    )
                     return parameters_to_telemetry(
                         partial_parameters
                     )
 
             if partial_parameters:
+                _LOGGER.debug(
+                    "Deepal MQTT: mapped keys received=%s",
+                    sorted(partial_parameters.keys()),
+                )
                 return parameters_to_telemetry(
                     partial_parameters
                 )
