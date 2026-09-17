@@ -1,4 +1,4 @@
-"""MQTT protocol helpers for Deepal Spain DEC."""
+"""MQTT client for Deepal Spain DEC."""
 
 from __future__ import annotations
 
@@ -6,12 +6,19 @@ import asyncio
 from datetime import UTC, datetime
 import gzip
 import json
+import ssl
 import struct
 import time
 from dataclasses import dataclass
 from typing import Any
 
 from .crypto import decrypt_mqtt_payload, encrypt_mqtt_payload
+from .models import DeepalTelemetry
+from .telemetry import parameters_to_telemetry
+
+
+MQTT_CONNECTION_TIMEOUT = 15
+MQTT_TELEMETRY_TIMEOUT = 18
 
 
 @dataclass(slots=True)
@@ -337,6 +344,12 @@ def parse_connection_config(
             "MQTT configuration does not contain a broker host"
         )
 
+    if not subscribe_topics:
+        raise ValueError(
+            "MQTT configuration does not contain "
+            "subscription topics"
+        )
+
     if not login_publish_topic:
         raise ValueError(
             "MQTT configuration does not contain "
@@ -527,3 +540,239 @@ def extract_telemetry_parameters(
                 parameters.update(item_parameters)
 
     return parameters
+
+
+class DeepalMqttClient:
+    """Read vehicle telemetry from the Deepal MQTT broker."""
+
+    def __init__(
+        self,
+        connection: DeepalMqttConnection,
+        auth_token: str,
+    ) -> None:
+        """Initialize the MQTT client."""
+        self._connection = connection
+        self._auth_token = auth_token
+
+    async def fetch_telemetry(self) -> DeepalTelemetry:
+        """Connect to MQTT and retrieve vehicle telemetry."""
+        ssl_context = ssl.create_default_context()
+
+        reader, writer = await asyncio.wait_for(
+            asyncio.open_connection(
+                self._connection.host,
+                self._connection.port,
+                ssl=ssl_context,
+                server_hostname=self._connection.host,
+            ),
+            timeout=MQTT_CONNECTION_TIMEOUT,
+        )
+
+        try:
+            await self._connect(
+                writer,
+                reader,
+            )
+
+            await self._subscribe(
+                writer,
+                reader,
+            )
+
+            login_request_id = create_request_id(
+                self._connection.login_device_id
+            )
+
+            writer.write(
+                build_publish_packet(
+                    self._connection.login_publish_topic,
+                    build_login_payload(
+                        self._connection.login_device_id,
+                        login_request_id,
+                    ),
+                )
+            )
+            await writer.drain()
+
+            secret_key: str | None = None
+            partial_parameters: dict[str, Any] = {}
+            condition_requested = False
+
+            deadline = (
+                time.monotonic()
+                + MQTT_TELEMETRY_TIMEOUT
+            )
+
+            while time.monotonic() < deadline:
+                remaining_timeout = max(
+                    1,
+                    deadline - time.monotonic(),
+                )
+
+                first_byte, body = await asyncio.wait_for(
+                    read_packet(reader),
+                    timeout=remaining_timeout,
+                )
+
+                packet_type = first_byte >> 4
+
+                if packet_type != 3:
+                    continue
+
+                topic, payload, packet_id = (
+                    parse_publish_packet(
+                        first_byte,
+                        body,
+                    )
+                )
+
+                if packet_id is not None:
+                    writer.write(
+                        build_puback_packet(packet_id)
+                    )
+                    await writer.drain()
+
+                if secret_key is None:
+                    secret_key = extract_secret_key(
+                        payload
+                    )
+
+                    if secret_key:
+                        condition_request_id = (
+                            create_request_id(
+                                self._connection.vehicle_device_id
+                            )
+                        )
+
+                        condition_payload = (
+                            build_condition_payload(
+                                self._connection.vehicle_device_id,
+                                self._connection.login_device_id,
+                                secret_key,
+                                condition_request_id,
+                            )
+                        )
+
+                        writer.write(
+                            build_publish_packet(
+                                self._connection.properties_publish_topic,
+                                condition_payload,
+                            )
+                        )
+                        await writer.drain()
+
+                        condition_requested = True
+
+                    continue
+
+                parameters = extract_telemetry_parameters(
+                    payload,
+                    secret_key,
+                )
+
+                if not parameters:
+                    continue
+
+                partial_parameters.update(parameters)
+
+                if (
+                    topic.endswith("/properties/get/res")
+                    and len(partial_parameters) > 10
+                ):
+                    return parameters_to_telemetry(
+                        partial_parameters
+                    )
+
+                if (
+                    condition_requested
+                    and len(partial_parameters) > 30
+                ):
+                    return parameters_to_telemetry(
+                        partial_parameters
+                    )
+
+            if partial_parameters:
+                return parameters_to_telemetry(
+                    partial_parameters
+                )
+
+            raise TimeoutError(
+                "Deepal MQTT telemetry was not received"
+            )
+
+        finally:
+            writer.close()
+
+            try:
+                await writer.wait_closed()
+            except (
+                ConnectionError,
+                TimeoutError,
+                ssl.SSLError,
+            ):
+                pass
+
+    async def _connect(
+        self,
+        writer: asyncio.StreamWriter,
+        reader: asyncio.StreamReader,
+    ) -> None:
+        """Authenticate with the MQTT broker."""
+        device_id = self._connection.login_device_id
+
+        writer.write(
+            build_connect_packet(
+                device_id,
+                device_id,
+                self._auth_token,
+            )
+        )
+        await writer.drain()
+
+        first_byte, body = await asyncio.wait_for(
+            read_packet(reader),
+            timeout=MQTT_CONNECTION_TIMEOUT,
+        )
+
+        return_code = (
+            body[1]
+            if first_byte == 0x20 and len(body) >= 2
+            else None
+        )
+
+        if return_code != 0:
+            raise ConnectionError(
+                "Deepal MQTT broker rejected the connection: "
+                f"return_code={return_code}"
+            )
+
+    async def _subscribe(
+        self,
+        writer: asyncio.StreamWriter,
+        reader: asyncio.StreamReader,
+    ) -> None:
+        """Subscribe to vehicle MQTT topics."""
+        if not self._connection.subscribe_topics:
+            raise ValueError(
+                "Deepal MQTT configuration contains no topics"
+            )
+
+        writer.write(
+            build_subscribe_packet(
+                1,
+                self._connection.subscribe_topics,
+            )
+        )
+        await writer.drain()
+
+        first_byte, _ = await asyncio.wait_for(
+            read_packet(reader),
+            timeout=MQTT_CONNECTION_TIMEOUT,
+        )
+
+        packet_type = first_byte >> 4
+
+        if packet_type != 9:
+            raise ConnectionError(
+                "Deepal MQTT broker did not return SUBACK"
+            )
