@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import time
 from typing import Any
 
 from aiohttp import ClientError, ClientResponseError, ClientSession
@@ -154,7 +155,10 @@ class DeepalApiClient:
             if (
                 "AUTH" in code.upper()
                 or code.startswith("401")
-                or code in {"APP_1_1_02_004", "APP_1_1_02_005"}
+                or code in {
+                    "APP_1_1_02_004",
+                    "APP_1_1_02_005",
+                }
             ):
                 raise DeepalAuthError(
                     f"Deepal authentication failed: {code} {message}"
@@ -179,8 +183,7 @@ class DeepalApiClient:
             include_tsp_token=True,
         )
 
-    async def get_vehicles(self) -> list[DeepalVehicle]:
-        """Return vehicles associated with the authenticated account."""
+    async def get_vehicles(self) -> list"""Return vehicles associated with the authenticated account."""
         data = await self.post(
             "/intl-app-gw/intl-app-user/api/car/vehicles"
         )
@@ -220,3 +223,51 @@ class DeepalApiClient:
             )
 
         return vehicles
+
+    async def get_mqtt_connection_config(
+        self,
+        vehicle_id: str,
+    ) -> dict[str, Any]:
+        """Return the MQTT connection configuration for a vehicle."""
+        data = await self.post_ca(
+            "/user-apigw/vot-connect-conf-center/api/device/getConnConf",
+            {
+                "deviceId": self.device_id,
+                "carId": vehicle_id,
+                "deviceType": 1,
+                "confTimestamp": 0,
+                "deviceTimestamp": str(int(time.time() * 1000)),
+            },
+        )
+
+        if not isinstance(data, dict):
+            raise DeepalApiError(
+                "MQTT connection response did not contain an object"
+            )
+
+        return data
+
+    async def get_mqtt_auth_token(
+        self,
+        user_id: str,
+    ) -> str:
+        """Return the MQTT authentication token for a user."""
+        if not user_id:
+            raise DeepalAuthError(
+                "MQTT authentication requires a user ID"
+            )
+
+        data = await self.post_ca(
+            "/user-apigw/vot-connect-auth-center/api/auth/"
+            "getAuthTokenByUserId",
+            {
+                "userId": user_id,
+            },
+        )
+
+        if not isinstance(data, dict) or not data.get("authToken"):
+            raise DeepalApiError(
+                "MQTT authentication response did not contain authToken"
+            )
+
+        return str(data["authToken"])
