@@ -3,10 +3,15 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import UTC, datetime
+import gzip
 import json
 import struct
+import time
 from dataclasses import dataclass
 from typing import Any
+
+from .crypto import decrypt_mqtt_payload, encrypt_mqtt_payload
 
 
 @dataclass(slots=True)
@@ -367,3 +372,158 @@ def parse_connection_config(
         login_device_id=login_device_id,
         vehicle_device_id=vehicle_device_id,
     )
+
+
+def create_request_id(device_id: str) -> str:
+    """Create a unique Deepal MQTT request identifier."""
+    return f"{device_id}_{int(time.time() * 1_000_000)}"
+
+
+def build_login_payload(
+    login_device_id: str,
+    request_id: str,
+) -> dict[str, Any]:
+    """Build the Deepal MQTT login payload."""
+    return {
+        "did": login_device_id,
+        "r": request_id,
+        "v": "v1.0.0",
+        "mt": "loginout",
+        "z": "unzip",
+        "a": 0,
+        "e": 0,
+        "tf": 0,
+        "dt": datetime.now(UTC).isoformat().replace(
+            "+00:00",
+            "Z",
+        ),
+        "pl": True,
+        "sers": [
+            {
+                "service_code": "login",
+                "params": {
+                    "encryptEnable": 1,
+                    "zipType": "gzip",
+                    "ts": int(time.time() * 1000),
+                },
+            }
+        ],
+    }
+
+
+def extract_secret_key(
+    payload: dict[str, Any],
+) -> str | None:
+    """Extract the MQTT encryption key from the login response."""
+    for item in payload.get("rs") or []:
+        if not isinstance(item, dict):
+            continue
+
+        for key in ("params", "data"):
+            value = item.get(key)
+
+            if (
+                isinstance(value, dict)
+                and value.get("secretKey")
+            ):
+                return str(value["secretKey"])
+
+    return None
+
+
+def build_condition_payload(
+    vehicle_device_id: str,
+    login_device_id: str,
+    secret_key: str,
+    request_id: str,
+) -> dict[str, Any]:
+    """Build the encrypted request for vehicle telemetry."""
+    services = [
+        {
+            "service_code": "car_condition",
+            "params": {
+                "fetchPropertyType": 0,
+            },
+        }
+    ]
+
+    return {
+        "did": vehicle_device_id,
+        "r": request_id,
+        "v": "v1.0.0",
+        "mt": "properties",
+        "e": 1,
+        "z": "gzip",
+        "tf": 0,
+        "dt": datetime.now(UTC).isoformat().replace(
+            "+00:00",
+            "Z",
+        ),
+        "b": {
+            "ruid": login_device_id,
+        },
+        "sers": encrypt_mqtt_payload(
+            services,
+            secret_key,
+            request_id,
+        ),
+        "rt": "",
+    }
+
+
+def extract_telemetry_parameters(
+    payload: dict[str, Any],
+    secret_key: str,
+) -> dict[str, Any]:
+    """Decrypt telemetry parameters from an MQTT response."""
+    request_id = payload.get("r")
+
+    if not isinstance(request_id, str):
+        return {}
+
+    parameters: dict[str, Any] = {}
+
+    for field in ("rs", "sers"):
+        encrypted_value = payload.get(field)
+
+        if (
+            not isinstance(encrypted_value, str)
+            or not encrypted_value
+        ):
+            continue
+
+        try:
+            items = decrypt_mqtt_payload(
+                encrypted_value,
+                secret_key,
+                request_id,
+            )
+        except (
+            ValueError,
+            UnicodeDecodeError,
+            json.JSONDecodeError,
+            gzip.BadGzipFile,
+        ):
+            continue
+
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+
+            service_code = item.get("service_code")
+            item_parameters = item.get("params")
+
+            if service_code not in {
+                None,
+                "car_condition",
+                "BDC_Service",
+                "BMS_Service",
+                "OBC_Service",
+                "THU_Service",
+            }:
+                continue
+
+            if isinstance(item_parameters, dict):
+                parameters.update(item_parameters)
+
+    return parameters
