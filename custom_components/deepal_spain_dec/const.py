@@ -1,7 +1,7 @@
 """Constants for Deepal Spain DEC."""
 
 DOMAIN = "deepal_spain_dec"
-NAME = "Integración Deepal España"
+NAME = "DEC Deepal S05 - Com. Deepal España"
 VERSION = "1.0.0"
 
 # Spain configuration
