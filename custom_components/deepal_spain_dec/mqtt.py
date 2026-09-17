@@ -190,3 +190,99 @@ def build_puback_packet(packet_id: int) -> bytes:
         bytes([0x40, 0x02])
         + struct.pack("!H", packet_id)
     )
+def extract_topic_did(topic: str) -> str | None:
+    """Extract the device identifier from a Deepal MQTT topic."""
+    parts = topic.split("/")
+
+    if len(parts) > 2 and parts[0] == "$vdp":
+        return parts[1]
+
+    return None
+
+
+def parse_connection_config(
+    config: dict[str, Any],
+) -> dict[str, Any]:
+    """Extract broker and topic information from getConnConf."""
+    connection_infos = config.get("mqttConnectionInfos") or []
+
+    if not connection_infos:
+        raise ValueError(
+            "MQTT configuration does not contain connection information"
+        )
+
+    connection_info = connection_infos[0] or {}
+    cluster_infos = connection_info.get("clusterInfos") or []
+
+    if not cluster_infos:
+        raise ValueError(
+            "MQTT configuration does not contain cluster information"
+        )
+
+    cluster_info = cluster_infos[0] or {}
+
+    host = str(
+        cluster_info.get("brokerUrl") or ""
+    ).replace("ssl://", "")
+
+    port = int(cluster_info.get("brokerPort") or 8883)
+
+    subscribe_topics: list[str] = []
+    login_publish_topic: str | None = None
+    properties_publish_topic: str | None = None
+    login_device_id: str | None = None
+    vehicle_device_id: str | None = None
+
+    for topic_info in connection_info.get("topicInfos") or []:
+        message_type = topic_info.get("msgType")
+
+        for topic in topic_info.get("pubTopics") or []:
+            if (
+                message_type == "loginout"
+                and "/loginout/req" in topic
+            ):
+                login_publish_topic = topic
+                login_device_id = extract_topic_did(topic)
+
+            if (
+                message_type == "properties"
+                and "/properties/get/req" in topic
+            ):
+                properties_publish_topic = topic
+                vehicle_device_id = extract_topic_did(topic)
+
+        for topic in topic_info.get("subTopics") or []:
+            if (
+                "/commands/" not in topic
+                and "/set/" not in topic
+            ):
+                subscribe_topics.append(topic)
+
+            if (
+                vehicle_device_id is None
+                and "/properties/" in topic
+            ):
+                vehicle_device_id = extract_topic_did(topic)
+
+    if not all(
+        (
+            host,
+            login_publish_topic,
+            properties_publish_topic,
+            login_device_id,
+            vehicle_device_id,
+        )
+    ):
+        raise ValueError(
+            "MQTT configuration is missing required broker or topic data"
+        )
+
+    return {
+        "host": host,
+        "port": port,
+        "subscribe_topics": sorted(set(subscribe_topics)),
+        "login_publish_topic": login_publish_topic,
+        "properties_publish_topic": properties_publish_topic,
+        "login_device_id": login_device_id,
+        "vehicle_device_id": vehicle_device_id,
+    }
