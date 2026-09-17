@@ -92,8 +92,12 @@ async def async_unload_entry(
     )
 
     if unload_successful:
-        hass.data[DOMAIN].pop(entry.entry_id, None)
+        domain_data = hass.data.get(DOMAIN)
 
-        if not hass.datahass.data.pop(DOMAIN)
+        if domain_data is not None:
+            domain_data.pop(entry.entry_id, None)
+
+            if not domain_data:
+                hass.data.pop(DOMAIN, None)
 
     return unload_successful
