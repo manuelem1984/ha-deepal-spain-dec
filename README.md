@@ -1,6 +1,6 @@
-# Integración Deepal España (by Comunidad Deepal España)
+# Integración Deepal S05 España (by Comunidad Deepal España)
 
-Integración no oficial para Home Assistant destinada a vehículos Deepal comercializados en España.
+Integración no oficial para Home Assistant destinada a vehículos Deepal S05 comercializados en España.
 
 ## Comunidad
 
