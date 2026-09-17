@@ -23,3 +23,33 @@ REQUEST_TIMEOUT = 30
 REQUEST_ENCRYPTION_PUBLIC_KEY = (
     "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAkyhr43cBPTJ3jLiYsmbUwUp74cMJIOju5vqVzgtuK63Q99qV6iVT8wN5cXlyMtWI2mfOmhIao/fUN821im69MfOHsWXdqQEo5e9v654GPw+bju0pCphEPtD1I0VcyS34QkAu04urSun2U1q3Dr2OICLVWSnLa+01ioKxkaB0D209zXcls2eFQpvRAWm7xxVsoqzSwqp+neu5quOpn+eO/bW0TxcSQ8VZcDEUvadRTLSR0eOWgRuHIBiD2RGqPIPzKCm5A14q1qhxUZ8U0pmYe0Sx7eMy4RVe2iW7fnjc6pxTUMBkercSL26mevYouuCKqyie+LVQAtGa29RMl/lyiwIDAQAB"
 )
+
+# Configuration entry fields
+CONF_LOGIN_METHOD = "login_method"
+CONF_EMAIL = "email"
+CONF_MOBILE = "mobile"
+CONF_ACCESS_TOKEN = "access_token"
+CONF_REFRESH_TOKEN = "refresh_token"
+CONF_CAC_TOKEN = "cac_token"
+CONF_USER_ID = "user_id"
+CONF_CA_USER_ID = "ca_user_id"
+CONF_CAC_USER_ID = "cac_user_id"
+CONF_DEVICE_ID = "device_id"
+CONF_PRIVATE_KEY = "private_key"
+CONF_VEHICLE_ID = "vehicle_id"
+CONF_VEHICLE_VIN = "vehicle_vin"
+CONF_VEHICLE_MODEL = "vehicle_model"
+CONF_VEHICLE_IMAGE_URL = "vehicle_image_url"
+CONF_MQTT_ENABLED = "mqtt_enabled"
+
+# Spain login methods
+LOGIN_METHOD_EMAIL = "email"
+LOGIN_METHOD_SMS = "sms"
+
+# Home Assistant platforms
+PLATFORMS = [
+    "sensor",
+    "binary_sensor",
+    "button",
+    "image",
+]
