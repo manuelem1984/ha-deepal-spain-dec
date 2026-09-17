@@ -1,7 +1,14 @@
 {
   "domain": "deepal_spain_dec",
   "name": "Integración Deepal España (by Comunidad Deepal España)",
-  "version": "0.1.0-dev",
+  "codeowners": [
+    "@manuelem1984"
+  ],
   "config_flow": true,
-  "iot_class": "cloud_polling"
+  "documentation": "https://github.com/manuelem1984/ha-deepal-spain-dec",
+  "integration_type": "hub",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/manuelem1984/ha-deepal-spain-dec/issues",
+  "requirements": [],
+  "version": "0.1.0"
 }
