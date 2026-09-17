@@ -50,14 +50,13 @@ Telegram: https://t.me/deepalespana_general
 **Instalación Manual**
 
 - Descarga la última versión desde: https://github.com/manuelem1984/ha-deepal-spain-dec
-
-DEC Deepal S05 GitHub Repository
-
 - Copia la carpeta: `custom_components/deepal_spain_dec`
 - al directorio: `config/custom_components/`
 - Reinicia Home Assistant.
 
 ## ⚙️ Configuración
+
+[![Open your Home Assistant instance and start setting up DEC Deepal S05.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=deepal_spain_dec)
 
 - Abre Home Assistant.
 - Ve a: `Ajustes → Dispositivos y Servicios → Añadir Integración`
