@@ -183,7 +183,8 @@ class DeepalApiClient:
             include_tsp_token=True,
         )
 
-    async def get_vehicles(self) -> list"""Return vehicles associated with the authenticated account."""
+    async def get_vehicles(self) -> list[DeepalVehicle]:
+        """Return vehicles associated with the authenticated account."""
         data = await self.post(
             "/intl-app-gw/intl-app-user/api/car/vehicles"
         )
