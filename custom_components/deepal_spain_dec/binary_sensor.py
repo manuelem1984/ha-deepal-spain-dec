@@ -208,4 +208,22 @@ class DeepalSpainBinarySensor(
         self,
         coordinator: DeepalSpainCoordinator,
         description: DeepalBinarySensorDescription,
-    
+    ) -> None:
+        """Initialize a Deepal Spain binary sensor."""
+        super().__init__(
+            coordinator,
+            description.key,
+        )
+
+        self.entity_description = description
+
+    @property
+    def is_on(self) -> bool | None:
+        """Return true if the binary sensor is on."""
+        data = self.coordinator.data
+
+        if data is None:
+            return None
+
+        return self.entity_description.value_fn(data)
+
