@@ -1,0 +1,46 @@
+{
+  "title": "Deepal Spain Integration",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Deepal Spain Integration",
+        "description": "Select the sign-in method used in the official Deepal Spain application.",
+        "data": {
+          "login_method": "Sign-in method"
+        }
+      },
+      "email": {
+        "title": "Sign in with email",
+        "description": "Enter the email address associated with your Deepal Spain account. You will receive a verification code.",
+        "data": {
+          "email": "Email address"
+        }
+      },
+      "sms": {
+        "title": "Sign in with SMS",
+        "description": "Enter your Spanish mobile number. You can enter it with or without the +34 prefix.",
+        "data": {
+          "mobile": "Mobile number"
+        }
+      },
+      "verification_code": {
+        "title": "Verification code",
+        "description": "Enter the six-digit verification code you received.",
+        "data": {
+          "auth_code": "Verification code"
+        }
+      }
+    },
+    "error": {
+      "invalid_mobile": "Enter a valid nine-digit Spanish mobile number.",
+      "send_code_failed": "The verification code could not be sent.",
+      "too_many_codes": "Too many verification codes have been requested. Try again later.",
+      "login_failed": "Sign-in failed. Check the verification code.",
+      "no_vehicles": "No vehicles were found for this account."
+    },
+    "abort": {
+      "already_configured": "This vehicle is already configured.",
+      "authentication_state_missing": "The authentication process has expired. Start the configuration again."
+    }
+  }
+}
