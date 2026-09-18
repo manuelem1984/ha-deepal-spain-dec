@@ -50,13 +50,14 @@ Telegram: https://t.me/deepalespana_general
 **Instalación Manual**
 
 - Descarga la última versión desde: https://github.com/manuelem1984/ha-deepal-spain-dec
+
+DEC Deepal S05 GitHub Repository
+
 - Copia la carpeta: `custom_components/deepal_spain_dec`
 - al directorio: `config/custom_components/`
 - Reinicia Home Assistant.
 
 ## ⚙️ Configuración
-
-[![Open your Home Assistant instance and start setting up DEC Deepal S05.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=deepal_spain_dec)
 
 - Abre Home Assistant.
 - Ve a: `Ajustes → Dispositivos y Servicios → Añadir Integración`
@@ -73,6 +74,7 @@ Una vez completado el proceso, Home Assistant comenzará a mostrar la informaci�
 - Algunas entidades pueden tardar varios minutos en reflejar cambios producidos en el vehículo.
 - Si utilizas simultáneamente la aplicación oficial y Home Assistant, puede ser necesario volver a iniciar sesión ocasionalmente.
 - El conjunto de sensores disponibles puede ampliarse en futuras versiones a medida que se descubran nuevos puntos de integración.
+- Consulta [docs/telemetry-parameters.md](docs/telemetry-parameters.md) para ver el inventario completo de parámetros que expone el vehículo y cuáles están ya implementados.
 
 ## 🚧 Estado del Proyecto
 

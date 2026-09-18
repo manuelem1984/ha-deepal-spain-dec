@@ -3,7 +3,7 @@
 Inventario de todas las claves que el vehículo envía por MQTT, su estado de
 implementación en la integración y las comprobaciones pendientes.
 
-- **Vehículo de referencia:** Deepal S05 (`España`)
+- **Vehículo de referencia:** Deepal S05 (VIN `LS6CME0P6TK106840`)
 - **Última captura:** 2026-09-18
 - **Claves recibidas en la captura:** 113
 - **Mapeadas a entidades:** 36

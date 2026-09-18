@@ -2,7 +2,7 @@
 
 DOMAIN = "deepal_spain_dec"
 NAME = "DEC Deepal S05 - Com. Deepal España"
-VERSION = "1.0.0"
+VERSION = "1.0.3"
 
 # Spain configuration
 SPAIN_COUNTRY = "ES"

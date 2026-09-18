@@ -35,6 +35,82 @@ KNOWN_SERVICE_CODES = {
     "THU_Service",
 }
 
+# Fields that already arrive from the vehicle (inside the known
+# service codes) but are not yet mapped into DeepalTelemetry.
+# Logged with their real values so the semantics (booleans, units,
+# scales) can be confirmed before wiring up new entities.
+CANDIDATE_KEYS = (
+    "acChargeGunConnectionState",
+    "dcChargeGunConnectionState",
+    "chargeCoverStatus",
+    "lfPressureWarning",
+    "rfPressureWarning",
+    "lrPressureWarning",
+    "rrPressureWarning",
+    "driverSeatHeatStatus",
+    "passengerSeatHeatStatus",
+    "driverSeatAirStatus",
+    "passengerSeatAirStatus",
+    "steeringWheelHeating",
+    "airStatus",
+    "airRecycleStatus",
+    "frontDefrostStatus",
+    "airConditioningSetTemperature",
+    "airConditioningHairRatings",
+    "airPurifierStatus",
+    "leftAnteriorWindowDegree",
+    "rightAnteriorWindowDegree",
+    "leftRearWindowDegree",
+    "rightRearWindowDegree",
+    "skyWindowDegree",
+    "hoodStatus",
+    "frontFoglamp",
+    "rearFoglamp",
+    "keyLowPower",
+    "reverseRadarStatus",
+    "batt12VLightStatus",
+    "brakeFluidLightStatus",
+    "tpmsLightStatus",
+    "epbLightStatus",
+    "absLightStatus",
+    "airbagSystemStatus",
+    "oilPressureLightStatus",
+    "powerStatusFeedBack",
+)
+
+
+def log_telemetry_snapshot(parameters: dict[str, Any]) -> None:
+    """Log received keys plus the raw values of unmapped candidates.
+
+    Only runs the formatting work when debug logging is enabled.
+    """
+    if not _LOGGER.isEnabledFor(logging.DEBUG):
+        return
+
+    _LOGGER.debug(
+        "Deepal MQTT: mapped keys received=%s",
+        sorted(parameters.keys()),
+    )
+
+    candidates = {
+        key: parameters[key]
+        for key in CANDIDATE_KEYS
+        if key in parameters
+    }
+
+    if candidates:
+        _LOGGER.debug(
+            "Deepal MQTT: candidate values=%s",
+            json.dumps(candidates, ensure_ascii=False, sort_keys=True),
+        )
+
+    missing = sorted(set(CANDIDATE_KEYS) - set(parameters))
+    if missing:
+        _LOGGER.debug(
+            "Deepal MQTT: candidates not present in this payload=%s",
+            missing,
+        )
+
 
 @dataclass(slots=True)
 class DeepalMqttConnection:
@@ -700,10 +776,7 @@ class DeepalMqttClient:
                     topic.endswith("/properties/get/res")
                     and len(partial_parameters) > 10
                 ):
-                    _LOGGER.debug(
-                        "Deepal MQTT: mapped keys received=%s",
-                        sorted(partial_parameters.keys()),
-                    )
+                    log_telemetry_snapshot(partial_parameters)
                     return parameters_to_telemetry(
                         partial_parameters
                     )
@@ -712,19 +785,13 @@ class DeepalMqttClient:
                     condition_requested
                     and len(partial_parameters) > 30
                 ):
-                    _LOGGER.debug(
-                        "Deepal MQTT: mapped keys received=%s",
-                        sorted(partial_parameters.keys()),
-                    )
+                    log_telemetry_snapshot(partial_parameters)
                     return parameters_to_telemetry(
                         partial_parameters
                     )
 
             if partial_parameters:
-                _LOGGER.debug(
-                    "Deepal MQTT: mapped keys received=%s",
-                    sorted(partial_parameters.keys()),
-                )
+                log_telemetry_snapshot(partial_parameters)
                 return parameters_to_telemetry(
                     partial_parameters
                 )
