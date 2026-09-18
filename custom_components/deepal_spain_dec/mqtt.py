@@ -646,10 +646,21 @@ class DeepalMqttClient:
         self,
         connection: DeepalMqttConnection,
         auth_token: str,
+        ssl_context: ssl.SSLContext | None = None,
     ) -> None:
-        """Initialize the MQTT client."""
+        """Initialize the MQTT client.
+
+        ssl_context should be built once via hass.async_add_executor_job
+        (see coordinator.py) and reused across calls: creating one reads
+        the system's trust store from disk, which is a blocking
+        operation and must not happen directly on the event loop. If
+        omitted, one is created lazily here as a fallback (e.g. for
+        direct/manual use outside Home Assistant), at the cost of that
+        same blocking warning.
+        """
         self._connection = connection
         self._auth_token = auth_token
+        self._ssl_context = ssl_context
 
         # Raw vehicle parameters from the most recent successful
         # fetch_telemetry() call, kept for diagnostics.py so we can
@@ -658,7 +669,7 @@ class DeepalMqttClient:
 
     async def fetch_telemetry(self) -> DeepalTelemetry:
         """Connect to MQTT and retrieve vehicle telemetry."""
-        ssl_context = ssl.create_default_context()
+        ssl_context = self._ssl_context or ssl.create_default_context()
 
         reader, writer = await asyncio.wait_for(
             asyncio.open_connection(

@@ -61,6 +61,7 @@ async def async_setup_entry(
 
     coordinator = DeepalSpainCoordinator(
         hass,
+        entry,
         api,
         session,
         vehicle,
