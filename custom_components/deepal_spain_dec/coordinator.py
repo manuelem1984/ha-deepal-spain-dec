@@ -51,6 +51,10 @@ class DeepalSpainCoordinator(
         self.session = session
         self.vehicle = vehicle
 
+        # Raw vehicle parameters from the most recent successful update,
+        # kept for diagnostics.py (shows both mapped and unmapped fields).
+        self.last_raw_parameters: dict = {}
+
     async def _async_update_data(
         self,
     ) -> DeepalTelemetry:
@@ -87,7 +91,11 @@ class DeepalSpainCoordinator(
                 mqtt_auth_token,
             )
 
-            return await mqtt_client.fetch_telemetry()
+            telemetry = await mqtt_client.fetch_telemetry()
+            self.last_raw_parameters = (
+                mqtt_client.last_raw_parameters
+            )
+            return telemetry
 
         except (
             DeepalApiError,

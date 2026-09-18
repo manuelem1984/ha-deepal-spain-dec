@@ -651,6 +651,11 @@ class DeepalMqttClient:
         self._connection = connection
         self._auth_token = auth_token
 
+        # Raw vehicle parameters from the most recent successful
+        # fetch_telemetry() call, kept for diagnostics.py so we can
+        # show both mapped and not-yet-mapped fields.
+        self.last_raw_parameters: dict[str, Any] = {}
+
     async def fetch_telemetry(self) -> DeepalTelemetry:
         """Connect to MQTT and retrieve vehicle telemetry."""
         ssl_context = ssl.create_default_context()
@@ -777,6 +782,9 @@ class DeepalMqttClient:
                     and len(partial_parameters) > 10
                 ):
                     log_telemetry_snapshot(partial_parameters)
+                    self.last_raw_parameters = dict(
+                        partial_parameters
+                    )
                     return parameters_to_telemetry(
                         partial_parameters
                     )
@@ -786,12 +794,18 @@ class DeepalMqttClient:
                     and len(partial_parameters) > 30
                 ):
                     log_telemetry_snapshot(partial_parameters)
+                    self.last_raw_parameters = dict(
+                        partial_parameters
+                    )
                     return parameters_to_telemetry(
                         partial_parameters
                     )
 
             if partial_parameters:
                 log_telemetry_snapshot(partial_parameters)
+                self.last_raw_parameters = dict(
+                    partial_parameters
+                )
                 return parameters_to_telemetry(
                     partial_parameters
                 )

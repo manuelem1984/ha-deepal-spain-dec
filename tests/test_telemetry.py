@@ -258,3 +258,44 @@ def test_parameters_to_telemetry_handles_empty_payload():
     assert result.battery_level is None
     assert result.connected is True  # set unconditionally on a successful fetch
     assert result.engine_on is None
+
+
+# ---------------------------------------------------------------------------
+# MAPPED_KEYS — used by diagnostics.py to tell mapped fields apart from
+# ones the vehicle sends but no entity uses yet. These tests exist so that
+# adding a new mapped field to parameters_to_telemetry without updating
+# MAPPED_KEYS gets caught here instead of silently breaking diagnostics.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "key",
+    [
+        "soc",
+        "driverDoor",
+        "driverDoorLock",
+        "lfTyrePressure",
+        "highBeam",
+        "ChrgSts",
+        "totalOdometer",
+    ],
+)
+def test_mapped_keys_contains_known_mapped_fields(key):
+    assert key in telemetry.MAPPED_KEYS
+
+
+@pytest.mark.parametrize(
+    "key",
+    [
+        "hoodStatus",
+        "skyWindowDegree",
+        "driverSeatHeatStatus",
+        "airConditioningSetTemperature",
+    ],
+)
+def test_mapped_keys_excludes_known_unmapped_fields(key):
+    # These are documented in docs/telemetry-parameters.md as candidates
+    # not implemented yet. If one of these starts failing, it means the
+    # field was mapped in parameters_to_telemetry — update MAPPED_KEYS
+    # (and this test) to match.
+    assert key not in telemetry.MAPPED_KEYS

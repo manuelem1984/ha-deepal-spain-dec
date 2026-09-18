@@ -8,6 +8,66 @@ from typing import Any
 from .models import DeepalTelemetry
 
 
+# Every raw vehicle key that parameters_to_telemetry() below reads,
+# grouped the same way as the DeepalTelemetry fields they feed.
+# diagnostics.py uses this to tell mapped fields apart from ones the
+# vehicle sends but no entity uses yet, without duplicating the list.
+MAPPED_KEYS: frozenset[str] = frozenset(
+    {
+        # Battery
+        "soc",
+        "socDsp",
+        "remainPower",
+        "remainedPowerMile",
+        "totalResidualMileage",
+        # Vehicle
+        "engineStatus",
+        "totalOdometer",
+        "vehicleSpeed",
+        "speed",
+        "latestDate",
+        "lastUpdatedAt",
+        # Charging
+        "ChrgSts",
+        "BattACChrgInCurr",
+        "BattDCChrgInCurr",
+        "battACChrgInCurr",
+        "battDCChrgInCurr",
+        "chargDeltMins",
+        # Climate
+        "vehicleTemperature",
+        "outsideTemperature",
+        "externalTemperature",
+        "innerHumidity",
+        # Doors
+        "driverDoor",
+        "passengerDoor",
+        "leftRearDoor",
+        "rightRearDoor",
+        "trunk",
+        # Locks
+        "driverDoorLock",
+        "passengerDoorLock",
+        # Windows
+        "diverWindow",
+        "passengerWindow",
+        "leftRearWindow",
+        "rightRearWindow",
+        # Tyres
+        "lfTyrePressure",
+        "rfTyrePressure",
+        "lrTyrePressure",
+        "rrTyrePressure",
+        # Lights
+        "highBeam",
+        "lowBeam",
+        "positionLamp",
+        "turnLndicatorLeft",
+        "turnLndicatorRight",
+    }
+)
+
+
 def as_int(value: Any) -> int | None:
     """Convert a value to an integer."""
     if value is None:
