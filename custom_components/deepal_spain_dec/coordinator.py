@@ -6,12 +6,13 @@ from datetime import timedelta
 import logging
 
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import (
     DataUpdateCoordinator,
     UpdateFailed,
 )
 
-from .api import DeepalApiClient, DeepalApiError
+from .api import DeepalApiClient, DeepalApiError, DeepalAuthError
 from .models import (
     DeepalSession,
     DeepalTelemetry,
@@ -96,6 +97,17 @@ class DeepalSpainCoordinator(
                 mqtt_client.last_raw_parameters
             )
             return telemetry
+
+        except DeepalAuthError as error:
+            # The Deepal session token stopped working — most likely
+            # someone signed in again from the official app, which
+            # invalidates the token Home Assistant was using (see
+            # README, "Avisos Importantes"). Raising this instead of
+            # UpdateFailed makes Home Assistant prompt the user to
+            # reauthenticate instead of retrying forever.
+            raise ConfigEntryAuthFailed(
+                f"Deepal session token is no longer valid: {error}"
+            ) from error
 
         except (
             DeepalApiError,

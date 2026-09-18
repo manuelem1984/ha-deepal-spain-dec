@@ -40,7 +40,9 @@
     },
     "abort": {
       "already_configured": "Este vehículo ya está configurado.",
-      "authentication_state_missing": "El proceso de autenticación ha caducado. Inicia nuevamente la configuración."
+      "authentication_state_missing": "El proceso de autenticación ha caducado. Inicia nuevamente la configuración.",
+      "reauth_successful": "Sesión renovada correctamente.",
+      "reauth_vehicle_mismatch": "Esta cuenta no está asociada al mismo vehículo que ya tenías configurado. Inicia sesión con la cuenta correcta."
     }
   }
 }

@@ -8,6 +8,12 @@ from typing import Any
 
 from aiohttp import ClientError, ClientResponseError, ClientSession
 
+from .api_errors import (
+    DeepalApiError,
+    DeepalAuthError,
+    DeepalRateLimitError,
+    is_auth_error,
+)
 from .const import (
     BASE_URL,
     CA_BASE_URL,
@@ -18,17 +24,12 @@ from .const import (
 )
 from .models import DeepalVehicle
 
-
-class DeepalApiError(Exception):
-    """Base exception for Deepal API errors."""
-
-
-class DeepalAuthError(DeepalApiError):
-    """Raised when Deepal authentication fails."""
-
-
-class DeepalRateLimitError(DeepalApiError):
-    """Raised when Deepal limits verification-code requests."""
+__all__ = [
+    "DeepalApiClient",
+    "DeepalApiError",
+    "DeepalAuthError",
+    "DeepalRateLimitError",
+]
 
 
 class DeepalApiClient:
@@ -152,14 +153,7 @@ class DeepalApiClient:
                     f"Deepal rate limit: {code} {message}"
                 )
 
-            if (
-                "AUTH" in code.upper()
-                or code.startswith("401")
-                or code in {
-                    "APP_1_1_02_004",
-                    "APP_1_1_02_005",
-                }
-            ):
+            if is_auth_error(code, message):
                 raise DeepalAuthError(
                     f"Deepal authentication failed: {code} {message}"
                 )

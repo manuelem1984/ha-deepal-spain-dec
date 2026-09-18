@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import secrets
+from collections.abc import Mapping
 from typing import Any
 
 import voluptuous as vol
 
 from homeassistant import config_entries
+from homeassistant.config_entries import SOURCE_REAUTH
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import (
@@ -60,6 +62,21 @@ class DeepalSpainDecConfigFlow(
         self._login_method: str | None = None
         self._identifier: str | None = None
 
+        # Set by async_step_reauth() so a reauthentication reuses the
+        # same device_id the entry was originally created with, instead
+        # of registering a brand new device with Deepal.
+        self._device_id: str | None = None
+
+    async def async_step_reauth(
+        self,
+        entry_data: Mapping[str, Any],
+    ):
+        """Start reauthentication after the stored session token stops working."""
+        self._login_method = entry_data.get(CONF_LOGIN_METHOD)
+        self._device_id = entry_data.get(CONF_DEVICE_ID)
+
+        return await self.async_step_user()
+
     async def async_step_user(
         self,
         user_input: dict[str, Any] | None = None,
@@ -77,7 +94,9 @@ class DeepalSpainDecConfigFlow(
             {
                 vol.Required(
                     CONF_LOGIN_METHOD,
-                    default=LOGIN_METHOD_EMAIL,
+                    default=(
+                        self._login_method or LOGIN_METHOD_EMAIL
+                    ),
                 ): vol.In(LOGIN_METHODS),
             }
         )
@@ -204,11 +223,6 @@ class DeepalSpainDecConfigFlow(
                 else:
                     vehicle = vehicles[0]
 
-                    await self.async_set_unique_id(
-                        vehicle.vehicle_id
-                    )
-                    self._abort_if_unique_id_configured()
-
                     entry_data = {
                         CONF_LOGIN_METHOD: self._login_method,
                         CONF_ACCESS_TOKEN: session.access_token,
@@ -227,6 +241,26 @@ class DeepalSpainDecConfigFlow(
                         CONF_VEHICLE_IMAGE_URL: vehicle.image_url,
                         CONF_MQTT_ENABLED: vehicle.mqtt_enabled,
                     }
+
+                    if self.source == SOURCE_REAUTH:
+                        # Same account, but make sure it's still the
+                        # same vehicle before overwriting the entry.
+                        await self.async_set_unique_id(
+                            vehicle.vehicle_id
+                        )
+                        self._abort_if_unique_id_mismatch(
+                            reason="reauth_vehicle_mismatch"
+                        )
+
+                        return self.async_update_reload_and_abort(
+                            self._get_reauth_entry(),
+                            data_updates=entry_data,
+                        )
+
+                    await self.async_set_unique_id(
+                        vehicle.vehicle_id
+                    )
+                    self._abort_if_unique_id_configured()
 
                     title = (
                         vehicle.model_name
@@ -252,8 +286,12 @@ class DeepalSpainDecConfigFlow(
         )
 
     def _create_authenticator(self) -> None:
-        """Create the API client and authenticator."""
-        device_id = secrets.token_hex(16)
+        """Create the API client and authenticator.
+
+        Reuses the existing device_id during a reauthentication, so Deepal
+        sees the same device instead of registering a brand new one.
+        """
+        device_id = self._device_id or secrets.token_hex(16)
 
         self._api = DeepalApiClient(
             async_get_clientsession(self.hass),

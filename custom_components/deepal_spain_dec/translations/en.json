@@ -40,7 +40,9 @@
     },
     "abort": {
       "already_configured": "This vehicle is already configured.",
-      "authentication_state_missing": "The authentication process has expired. Start the configuration again."
+      "authentication_state_missing": "The authentication process has expired. Start the configuration again.",
+      "reauth_successful": "Re-authentication was successful.",
+      "reauth_vehicle_mismatch": "This account is not linked to the vehicle that is already configured. Sign in with the correct account."
     }
   }
 }
