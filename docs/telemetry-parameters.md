@@ -4,7 +4,7 @@ Inventario de todas las claves que el vehículo envía por MQTT, su estado de
 implementación en la integración y las comprobaciones pendientes.
 
 - **Vehículo de referencia:** Deepal S05 (VIN `LS6CME0P6TK106840`)
-- **Última captura:** 2026-09-18
+- **Última captura:** 2026-09-18 (coche en uso, entrando en cochera — no en reposo)
 - **Claves recibidas en la captura:** 113
 - **Mapeadas a entidades:** 36
 - **Sin mapear:** 77
@@ -57,7 +57,7 @@ Claves ya mapeadas en `telemetry.py`. No requieren acción.
 | `trunk` | Maletero | |
 | `driverDoorLock` / `passengerDoorLock` | Cierre | |
 | `diverWindow` / `passengerWindow` / `leftRearWindow` / `rightRearWindow` | Ventanas | `diverWindow` es errata del fabricante |
-| `lfTyrePressure` / `rfTyrePressure` / `lrTyrePressure` / `rrTyrePressure` | Presión neumáticos | Confirmar unidad (kPa vs bar) |
+| `lfTyrePressure` / `rfTyrePressure` / `lrTyrePressure` / `rrTyrePressure` | Presión neumáticos | ✅ Confirmado 2026-09-18: la unidad en bruto **sí es kPa** (293,82 / 288,33 / 291,08 / 296,57 kPa ÷ 100 ≈ 2,9 / 2,9 / 2,9 / 3,0 bar, coincide con la app). Mostrado en `sensor.py` como bar vía `suggested_unit_of_measurement` (sin tocar el valor guardado) |
 | `highBeam` / `lowBeam` / `positionLamp` | Luces | |
 | `turnLndicatorLeft` / `turnLndicatorRight` | Intermitentes | `Lndicator` es errata del fabricante |
 
@@ -95,8 +95,8 @@ Recibidas pero sin mapear. Ordenadas por utilidad práctica.
 | Clave | Hipótesis | Apagado | Encendido | Estado |
 | --- | --- | --- | --- | --- |
 | `airStatus` | A/C encendido | | | ? |
-| `airConditioningSetTemperature` | Consigna de temperatura | | | ? Confirmar escala: `225` = 22,5 °C |
-| `airConditioningHairRatings` | Velocidad del ventilador | | | ? Rango probable 0-7 |
+| `airConditioningSetTemperature` | Consigna de temperatura | | | ✅ Confirmado 2026-09-18: `22.5` = 22,5 °C directos (grados, sin escalar) |
+| `airConditioningHairRatings` | Velocidad del ventilador | | | ? Visto `2` el 2026-09-18 (climatización encendida). Rango total aún sin confirmar |
 | `airRecycleStatus` | Recirculación de aire | | | ? |
 | `frontDefrostStatus` | Desempañado delantero | | | ? |
 | `airPurifierStatus` | Purificador de aire | | | ? |
@@ -161,6 +161,18 @@ Recibidas pero sin mapear. Ordenadas por utilidad práctica.
 Probablemente booleanos de avería, candidatos a `binary_sensor` con
 `device_class: problem`. Todos deberían valer `0` con el coche sano, lo que
 facilita confirmar la polaridad.
+
+> ⚠️ **Hallazgo 2026-09-18 — dos familias distintas, no confundir:**
+> en una captura real con el coche recién circulando (sin ninguna avería
+> conocida), estos campos aparecieron en `1` en vez de `0`:
+> `aebLightStatus`, `accLightStatus`, `accStatus`, `ldwStatus`,
+> `lwdLightStatus`, `machineOilStatus`. La hipótesis más probable es que los
+> relacionados con ADAS (frenada de emergencia, control de crucero, aviso de
+> cambio de carril) indican **"sistema activo/disponible"**, no una avería —
+> tendría sentido que estén a `1` con el coche en marcha. Quedan pendientes
+> de confirmar con una captura del coche parado/apagado (deberían bajar a
+> `0`, o no — hay que comprobarlo). El resto de la tabla de abajo sí se
+> comportó como se esperaba (`0` en todos, sin avisos).
 
 | Clave | Testigo probable |
 | --- | --- |
