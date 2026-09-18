@@ -1,8 +1,15 @@
 """Constants for Deepal Spain DEC."""
 
+import json
+from pathlib import Path
+
 DOMAIN = "deepal_spain_dec"
 NAME = "DEC Deepal S05 - Com. Deepal España"
-VERSION = "1.0.3"
+
+# Single source of truth for the version: read straight from
+# manifest.json so it only has to be updated in one place.
+_MANIFEST_PATH = Path(__file__).parent / "manifest.json"
+VERSION = json.loads(_MANIFEST_PATH.read_text(encoding="utf-8"))["version"]
 
 # Spain configuration
 SPAIN_COUNTRY = "ES"

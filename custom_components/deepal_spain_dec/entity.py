@@ -5,7 +5,7 @@ from __future__ import annotations
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, NAME
+from .const import DOMAIN, NAME, VERSION
 from .coordinator import DeepalSpainCoordinator
 
 
@@ -52,5 +52,6 @@ class DeepalSpainEntity(
             configuration_url=(
                 "https://t.me/deepalespana_general"
             ),
-            sw_version=NAME,
+            sw_version=VERSION,
+            hw_version=NAME,
         )
