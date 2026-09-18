@@ -210,8 +210,16 @@ def realistic_payload() -> dict:
         "positionLamp": 0,
         "turnLndicatorLeft": 0,
         "turnLndicatorRight": 0,
+        # Body / climate control (confirmed 2026-09-18)
+        "hoodStatus": "1",
+        "airStatus": 1,
+        "airConditioningHairRatings": 2,
+        "airConditioningSetTemperature": 22.5,
+        "leftAnteriorWindowDegree": "98",
+        "rightAnteriorWindowDegree": "0",
+        "leftRearWindowDegree": "0",
+        "rightRearWindowDegree": "0",
         # Fields the vehicle sends but the integration does not map yet.
-        "hoodStatus": 0,
         "skyWindowDegree": 0,
     }
 
@@ -234,6 +242,13 @@ def test_parameters_to_telemetry_maps_known_fields(realistic_payload):
     assert result.driver_locked is True
     assert result.left_front_tire_pressure == 230
     assert result.high_beam is False
+    # Confirmed against the real vehicle on 2026-09-18.
+    assert result.hood_open is True
+    assert result.climate_on is True
+    assert result.fan_speed == 2
+    assert result.climate_target_temperature_c == 22.5
+    assert result.front_left_window_percent == 98
+    assert result.front_right_window_percent == 0
 
 
 def test_parameters_to_telemetry_speed_and_outside_temp_stay_none(
@@ -287,10 +302,10 @@ def test_mapped_keys_contains_known_mapped_fields(key):
 @pytest.mark.parametrize(
     "key",
     [
-        "hoodStatus",
         "skyWindowDegree",
         "driverSeatHeatStatus",
-        "airConditioningSetTemperature",
+        "chargeCoverStatus",
+        "steeringWheelHeating",
     ],
 )
 def test_mapped_keys_excludes_known_unmapped_fields(key):
@@ -299,3 +314,22 @@ def test_mapped_keys_excludes_known_unmapped_fields(key):
     # field was mapped in parameters_to_telemetry — update MAPPED_KEYS
     # (and this test) to match.
     assert key not in telemetry.MAPPED_KEYS
+
+
+@pytest.mark.parametrize(
+    "key",
+    [
+        "hoodStatus",
+        "airStatus",
+        "airConditioningHairRatings",
+        "airConditioningSetTemperature",
+        "leftAnteriorWindowDegree",
+        "rightAnteriorWindowDegree",
+        "leftRearWindowDegree",
+        "rightRearWindowDegree",
+    ],
+)
+def test_mapped_keys_contains_newly_mapped_fields(key):
+    # Confirmed against the real vehicle on 2026-09-18 (see
+    # docs/telemetry-parameters.md) and mapped in this same session.
+    assert key in telemetry.MAPPED_KEYS
