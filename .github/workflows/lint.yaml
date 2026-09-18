@@ -1,0 +1,33 @@
+name: Lint
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  compile:
+    name: "🐍 Python compile + JSON válido"
+    runs-on: "ubuntu-latest"
+    steps:
+      - name: Check out the repository
+        uses: "actions/checkout@v4"
+
+      - name: Set up Python
+        uses: "actions/setup-python@v5"
+        with:
+          python-version: "3.13"
+
+      - name: Compile every .py file
+        run: |
+          python -m compileall -q custom_components/deepal_spain_dec
+          echo "OK: todos los .py compilan"
+
+      - name: Validate every .json file
+        run: |
+          set -e
+          find custom_components/deepal_spain_dec -name "*.json" -print0 | \
+            xargs -0 -I{} python -c "import json,sys; json.load(open('{}')); print('OK {}')" {}
+          python -c "import json; json.load(open('hacs.json')); print('OK hacs.json')"
