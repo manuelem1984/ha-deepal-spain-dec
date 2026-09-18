@@ -5,7 +5,7 @@ from __future__ import annotations
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, NAME, VERSION
+from .const import DOMAIN, SHORT_NAME, VERSION
 from .coordinator import DeepalSpainCoordinator
 
 
@@ -46,12 +46,12 @@ class DeepalSpainEntity(
                 or vehicle.vin
                 or "Deepal España"
             ),
-            manufacturer="Deepal",
-            model=vehicle.model_name or "Deepal",
+            manufacturer="Comunidad Deepal España",
+            model="Changan Deepal S05",
             serial_number=vehicle.vin,
             configuration_url=(
                 "https://t.me/deepalespana_general"
             ),
             sw_version=VERSION,
-            hw_version=NAME,
+            hw_version=SHORT_NAME,
         )
