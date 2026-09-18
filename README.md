@@ -1,4 +1,4 @@
-# Integración Deepal S05 España (by Comunidad Deepal España)
+# DEC Deepal S05 - Comunidad Deepal España
 
 <p align="center">
   <img src="custom_components/deepal_spain_dec/brand/icon.png" alt="Deepal logo" width="160">

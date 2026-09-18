@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 DOMAIN = "deepal_spain_dec"
-NAME = "DEC Deepal S05 - Com. Deepal España"
+NAME = "DEC Deepal S05 - Comunidad Deepal España"
 
 # Single source of truth for the version: read straight from
 # manifest.json so it only has to be updated in one place.

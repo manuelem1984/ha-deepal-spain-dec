@@ -1,9 +1,9 @@
 {
-  "title": "DEC Deepal S05",
+  "title": "DEC Deepal S05 - Comunidad Deepal España",
   "config": {
     "step": {
       "user": {
-        "title": "DEC Deepal S05",
+        "title": "DEC Deepal S05 - Comunidad Deepal España",
         "description": "Selecciona el método de acceso utilizado en la aplicación oficial de Deepal España.",
         "data": {
           "login_method": "Método de acceso"

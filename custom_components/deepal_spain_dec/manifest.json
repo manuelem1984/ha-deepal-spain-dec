@@ -1,6 +1,6 @@
 {
   "domain": "deepal_spain_dec",
-  "name": "DEC Deepal S05 - Com. Deepal España",
+  "name": "DEC Deepal S05 - Comunidad Deepal España",
   "codeowners": [
     "@manuelem1984"
   ],
@@ -10,5 +10,5 @@
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/manuelem1984/ha-deepal-spain-dec/issues",
   "requirements": [],
-  "version": "1.0.4"
+  "version": "1.0.5"
 }
