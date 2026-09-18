@@ -5,10 +5,13 @@
 
 # Release v.X.Y.Z
 
-## 🔧 Mejoras de diagnóstico
+## ✨ Nuevas funcionalidades
 -
 
 ## 🩹 Correcciones
+-
+
+## 🔧 Mejoras de diagnóstico
 -
 
 ## 📝 Notas
