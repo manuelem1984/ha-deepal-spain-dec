@@ -10,6 +10,8 @@ Integración no oficial para Home Assistant destinada a vehículos Deepal S05 co
 
 Telegram: https://t.me/deepalespana_general
 
+**Requiere Home Assistant 2026.3.0 o superior** (usa el mecanismo de iconos de marca locales introducido en esa versión; en versiones anteriores la integración funciona pero sin icono).
+
 ## ⚠️ Avisos Importantes
 
 - El uso de esta integración se realiza bajo tu propia responsabilidad.

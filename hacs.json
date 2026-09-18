@@ -1,5 +1,6 @@
 {
   "name": "DEC Deepal S05 - Comunidad Deepal España",
   "content_in_root": false,
-  "render_readme": true
+  "render_readme": true,
+  "homeassistant": "2026.3.0"
 }
