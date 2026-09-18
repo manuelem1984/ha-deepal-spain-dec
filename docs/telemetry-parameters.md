@@ -60,6 +60,11 @@ Claves ya mapeadas en `telemetry.py`. No requieren acción.
 | `lfTyrePressure` / `rfTyrePressure` / `lrTyrePressure` / `rrTyrePressure` | Presión neumáticos | ✅ Confirmado 2026-09-18: la unidad en bruto **sí es kPa** (293,82 / 288,33 / 291,08 / 296,57 kPa ÷ 100 ≈ 2,9 / 2,9 / 2,9 / 3,0 bar, coincide con la app). Mostrado en `sensor.py` como bar vía `suggested_unit_of_measurement` (sin tocar el valor guardado) |
 | `highBeam` / `lowBeam` / `positionLamp` | Luces | |
 | `turnLndicatorLeft` / `turnLndicatorRight` | Intermitentes | `Lndicator` es errata del fabricante |
+| `hoodStatus` | Capó | ✅ Confirmado 2026-09-18: `"0"` = cerrado, `"1"` = abierto |
+| `airStatus` | Aire acondicionado encendido | ✅ Confirmado 2026-09-18: `1` = encendido, `0` = apagado |
+| `airConditioningHairRatings` | Velocidad del ventilador | ✅ Confirmado 2026-09-18: nivel entero (visto `2`). Rango completo (máximo) aún sin confirmar |
+| `airConditioningSetTemperature` | Consigna de temperatura del clima | ✅ Confirmado 2026-09-18: grados directos (`22.5` = 22,5 °C), sin escalar |
+| `leftAnteriorWindowDegree` / `rightAnteriorWindowDegree` / `leftRearWindowDegree` / `rightRearWindowDegree` | % de apertura de cada ventana | ✅ Confirmado 2026-09-18 solo para la delantera izquierda (`0` cerrada, `98` abierta del todo). Las otras 3 se mapean igual por simetría, pendientes de confirmar una a una. **Ojo:** el S05 no tiene marco en las ventanillas, así que al abrir la puerta el cristal baja solo un ~12% aunque no se haya tocado la ventana — es un comportamiento normal del coche, no un error de lectura |
 
 ## 2. Buscadas pero nunca recibidas
 
@@ -94,9 +99,6 @@ Recibidas pero sin mapear. Ordenadas por utilidad práctica.
 
 | Clave | Hipótesis | Apagado | Encendido | Estado |
 | --- | --- | --- | --- | --- |
-| `airStatus` | A/C encendido | | | ? |
-| `airConditioningSetTemperature` | Consigna de temperatura | | | ✅ Confirmado 2026-09-18: `22.5` = 22,5 °C directos (grados, sin escalar) |
-| `airConditioningHairRatings` | Velocidad del ventilador | | | ? Visto `2` el 2026-09-18 (climatización encendida). Rango total aún sin confirmar |
 | `airRecycleStatus` | Recirculación de aire | | | ? |
 | `frontDefrostStatus` | Desempañado delantero | | | ? |
 | `airPurifierStatus` | Purificador de aire | | | ? |
@@ -115,17 +117,9 @@ Recibidas pero sin mapear. Ordenadas por utilidad práctica.
 
 | Clave | Hipótesis | Cerrado | Abierto | Estado |
 | --- | --- | --- | --- | --- |
-| `hoodStatus` | Capó | | | ? |
-| `skyWindowDegree` | Apertura techo solar | | | ? Confirmar escala 0-100 |
-| `leftAnteriorWindowDegree` | Apertura ventana del. izq. | | | ? |
-| `rightAnteriorWindowDegree` | Apertura ventana del. dcha. | | | ? |
-| `leftRearWindowDegree` | Apertura ventana tras. izq. | | | ? |
-| `rightRearWindowDegree` | Apertura ventana tras. dcha. | | | ? |
+| `skyWindowDegree` | Apertura techo solar | | | ? Sin cambios en la prueba del 2026-09-18 pese a mover "el parasol" — puede que el parasol (cortinilla textil) y el techo corredizo (cristal) sean mecanismos distintos. Falta probar moviendo el cristal, no la cortinilla |
 | `spoilerPosition` | Posición del alerón | | | ? |
 | `spoilerMovement` | Alerón en movimiento | | | ? |
-
-> Los `*Degree` permitirían sustituir los sensores binarios de ventana por
-> sensores de porcentaje de apertura.
 
 ### 3.5 Neumáticos
 
