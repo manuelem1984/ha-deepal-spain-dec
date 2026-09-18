@@ -64,6 +64,17 @@ MAPPED_KEYS: frozenset[str] = frozenset(
         "positionLamp",
         "turnLndicatorLeft",
         "turnLndicatorRight",
+        # Body
+        "hoodStatus",
+        # Climate control
+        "airStatus",
+        "airConditioningHairRatings",
+        "airConditioningSetTemperature",
+        # Window opening percentage
+        "leftAnteriorWindowDegree",
+        "rightAnteriorWindowDegree",
+        "leftRearWindowDegree",
+        "rightRearWindowDegree",
     }
 )
 
@@ -280,5 +291,33 @@ def parameters_to_telemetry(
         ),
         right_indicator=as_bool(
             parameters.get("turnLndicatorRight")
+        ),
+
+        # Body
+        hood_open=as_bool(parameters.get("hoodStatus")),
+
+        # Climate control
+        climate_on=as_bool(parameters.get("airStatus")),
+        fan_speed=as_int(
+            parameters.get("airConditioningHairRatings")
+        ),
+        climate_target_temperature_c=as_float(
+            parameters.get("airConditioningSetTemperature")
+        ),
+
+        # Window opening percentage. Only the front-left key is
+        # individually confirmed against the real vehicle; the other
+        # three are mapped the same way by symmetry.
+        front_left_window_percent=as_float(
+            parameters.get("leftAnteriorWindowDegree")
+        ),
+        front_right_window_percent=as_float(
+            parameters.get("rightAnteriorWindowDegree")
+        ),
+        rear_left_window_percent=as_float(
+            parameters.get("leftRearWindowDegree")
+        ),
+        rear_right_window_percent=as_float(
+            parameters.get("rightRearWindowDegree")
         ),
     )

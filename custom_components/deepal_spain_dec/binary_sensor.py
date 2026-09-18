@@ -36,6 +36,12 @@ class DeepalBinarySensorDescription(
         bool | None,
     ]
 
+    # Optional per-state icon override. When set, these take priority
+    # over `icon` / the device_class default (e.g. a lock icon shaped
+    # like an actual car door instead of a generic padlock).
+    icon_on: str | None = None
+    icon_off: str | None = None
+
 
 BINARY_SENSOR_DESCRIPTIONS: tuple[
     DeepalBinarySensorDescription,
@@ -65,29 +71,33 @@ BINARY_SENSOR_DESCRIPTIONS: tuple[
     DeepalBinarySensorDescription(
         key="front_left_door",
         translation_key="front_left_door",
-        name="Puerta delantera izquierda",
-        device_class=BinarySensorDeviceClass.DOOR,
+        name="Ventanilla Delantera Izquierda",
+        device_class=BinarySensorDeviceClass.WINDOW,
+        icon="mdi:car-door",
         value_fn=lambda data: data.front_left_door,
     ),
     DeepalBinarySensorDescription(
         key="front_right_door",
         translation_key="front_right_door",
-        name="Puerta delantera derecha",
-        device_class=BinarySensorDeviceClass.DOOR,
+        name="Ventanilla Delantera Derecha",
+        device_class=BinarySensorDeviceClass.WINDOW,
+        icon="mdi:car-door",
         value_fn=lambda data: data.front_right_door,
     ),
     DeepalBinarySensorDescription(
         key="rear_left_door",
         translation_key="rear_left_door",
-        name="Puerta trasera izquierda",
-        device_class=BinarySensorDeviceClass.DOOR,
+        name="Ventanilla Trasera Izquierda",
+        device_class=BinarySensorDeviceClass.WINDOW,
+        icon="mdi:car-door",
         value_fn=lambda data: data.rear_left_door,
     ),
     DeepalBinarySensorDescription(
         key="rear_right_door",
         translation_key="rear_right_door",
-        name="Puerta trasera derecha",
-        device_class=BinarySensorDeviceClass.DOOR,
+        name="Ventanilla Trasera Derecha",
+        device_class=BinarySensorDeviceClass.WINDOW,
+        icon="mdi:car-door",
         value_fn=lambda data: data.rear_right_door,
     ),
     DeepalBinarySensorDescription(
@@ -100,15 +110,19 @@ BINARY_SENSOR_DESCRIPTIONS: tuple[
     DeepalBinarySensorDescription(
         key="driver_locked",
         translation_key="driver_locked",
-        name="Puerta del conductor bloqueada",
+        name="Puerta del Conductor Bloqueo",
         device_class=BinarySensorDeviceClass.LOCK,
+        icon_on="mdi:car-door-lock",
+        icon_off="mdi:car-door-lock-open",
         value_fn=lambda data: data.driver_locked,
     ),
     DeepalBinarySensorDescription(
         key="passenger_locked",
         translation_key="passenger_locked",
-        name="Puerta del acompañante bloqueada",
+        name="Puerta del Acompañante Bloqueo",
         device_class=BinarySensorDeviceClass.LOCK,
+        icon_on="mdi:car-door-lock",
+        icon_off="mdi:car-door-lock-open",
         value_fn=lambda data: data.passenger_locked,
     ),
     DeepalBinarySensorDescription(
@@ -174,6 +188,21 @@ BINARY_SENSOR_DESCRIPTIONS: tuple[
         device_class=BinarySensorDeviceClass.LIGHT,
         value_fn=lambda data: data.right_indicator,
     ),
+    DeepalBinarySensorDescription(
+        key="hood_open",
+        translation_key="hood_open",
+        name="Capó",
+        device_class=BinarySensorDeviceClass.OPENING,
+        value_fn=lambda data: data.hood_open,
+    ),
+    DeepalBinarySensorDescription(
+        key="climate_on",
+        translation_key="climate_on",
+        name="Aire acondicionado encendido",
+        icon_on="mdi:air-conditioner",
+        icon_off="mdi:fan-off",
+        value_fn=lambda data: data.climate_on,
+    ),
 )
 
 
@@ -226,4 +255,26 @@ class DeepalSpainBinarySensor(
             return None
 
         return self.entity_description.value_fn(data)
+
+    @property
+    def icon(self) -> str | None:
+        """Return a per-state icon when the description defines one."""
+        description = self.entity_description
+
+        if (
+            description.icon_on is None
+            and description.icon_off is None
+        ):
+            return description.icon
+
+        is_on = self.is_on
+
+        if is_on is None:
+            return description.icon
+
+        return (
+            description.icon_on
+            if is_on
+            else description.icon_off
+        )
 

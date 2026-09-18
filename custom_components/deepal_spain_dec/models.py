@@ -114,3 +114,23 @@ class DeepalTelemetry:
 
     left_indicator: bool | None = None
     right_indicator: bool | None = None
+
+    # Body
+    hood_open: bool | None = None
+
+    # Climate control
+    climate_on: bool | None = None
+    fan_speed: int | None = None
+    climate_target_temperature_c: float | None = None
+
+    # Window opening percentage (0 = closed, 100 = fully open).
+    # Only front_left_window_percent is individually confirmed against
+    # the real vehicle so far; the other three are mapped the same way
+    # by symmetry (see docs/telemetry-parameters.md). Note: this
+    # vehicle has frameless windows, so the glass drops ~12% by itself
+    # whenever the matching door is opened — that is normal, not a
+    # sensor glitch.
+    front_left_window_percent: float | None = None
+    front_right_window_percent: float | None = None
+    rear_left_window_percent: float | None = None
+    rear_right_window_percent: float | None = None
