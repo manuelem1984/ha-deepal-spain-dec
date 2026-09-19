@@ -13,6 +13,7 @@ and are NOT asserted on here — only the already-implemented mapping is tested.
 
 from __future__ import annotations
 
+import dataclasses
 from datetime import UTC, datetime
 
 import pytest
@@ -194,11 +195,6 @@ def realistic_payload() -> dict:
         # Locks
         "driverDoorLock": 1,
         "passengerDoorLock": 1,
-        # Windows
-        "diverWindow": 0,
-        "passengerWindow": 0,
-        "leftRearWindow": 0,
-        "rightRearWindow": 0,
         # Tyres
         "lfTyrePressure": 230,
         "rfTyrePressure": 230,
@@ -215,11 +211,19 @@ def realistic_payload() -> dict:
         "airStatus": 1,
         "airConditioningHairRatings": 2,
         "airConditioningSetTemperature": 22.5,
-        "leftAnteriorWindowDegree": "98",
-        "rightAnteriorWindowDegree": "0",
-        "leftRearWindowDegree": "0",
-        "rightRearWindowDegree": "0",
-        # Fields the vehicle sends but the integration does not map yet.
+        # Fields the vehicle sends but the integration deliberately
+        # does not map (see docs/telemetry-parameters.md):
+        # - diverWindow/passengerWindow/leftRearWindow/rightRearWindow
+        #   duplicated front_left_door/etc.; removed in v1.2.0 to avoid
+        #   two entities for the same physical door.
+        # - *WindowDegree fields turned out to report movement
+        #   acceleration while the window is moving, not its resting
+        #   position — not useful as a Home Assistant entity.
+        "diverWindow": 0,
+        "passengerWindow": 0,
+        "leftRearWindow": 0,
+        "rightRearWindow": 0,
+        "leftAnteriorWindowDegree": "0",
         "skyWindowDegree": 0,
     }
 
@@ -247,19 +251,32 @@ def test_parameters_to_telemetry_maps_known_fields(realistic_payload):
     assert result.climate_on is True
     assert result.fan_speed == 2
     assert result.climate_target_temperature_c == 22.5
-    assert result.front_left_window_percent == 98
-    assert result.front_right_window_percent == 0
 
 
-def test_parameters_to_telemetry_speed_and_outside_temp_stay_none(
-    realistic_payload,
-):
-    # These keys are never sent by the real vehicle (see
-    # docs/telemetry-parameters.md, "Buscadas pero nunca recibidas").
-    # This test documents that gap instead of letting it default silently.
-    result = telemetry.parameters_to_telemetry(realistic_payload)
-    assert result.speed_kmh is None
-    assert result.outside_temperature_c is None
+def test_telemetry_has_no_removed_fields():
+    # Removed in v1.2.0 — speed and outside temperature are never
+    # sent by the real vehicle (see docs/telemetry-parameters.md,
+    # "Buscadas pero nunca recibidas"); front_left_window/etc.
+    # duplicated front_left_door/etc.; the *WindowDegree fields report
+    # movement acceleration, not window position. Keeping this test
+    # ensures nobody re-adds them without re-reading why they were
+    # taken out.
+    removed_fields = {
+        "speed_kmh",
+        "outside_temperature_c",
+        "front_left_window",
+        "front_right_window",
+        "rear_left_window",
+        "rear_right_window",
+        "front_left_window_percent",
+        "front_right_window_percent",
+        "rear_left_window_percent",
+        "rear_right_window_percent",
+    }
+    existing_fields = {
+        field.name for field in dataclasses.fields(DeepalTelemetry)
+    }
+    assert removed_fields.isdisjoint(existing_fields)
 
 
 def test_parameters_to_telemetry_prefers_first_available_battery_key():
@@ -323,13 +340,30 @@ def test_mapped_keys_excludes_known_unmapped_fields(key):
         "airStatus",
         "airConditioningHairRatings",
         "airConditioningSetTemperature",
-        "leftAnteriorWindowDegree",
-        "rightAnteriorWindowDegree",
-        "leftRearWindowDegree",
-        "rightRearWindowDegree",
     ],
 )
 def test_mapped_keys_contains_newly_mapped_fields(key):
     # Confirmed against the real vehicle on 2026-09-18 (see
     # docs/telemetry-parameters.md) and mapped in this same session.
     assert key in telemetry.MAPPED_KEYS
+
+
+@pytest.mark.parametrize(
+    "key",
+    [
+        # diverWindow/etc. duplicated front_left_door/etc. — removed
+        # in v1.2.0.
+        "diverWindow",
+        "passengerWindow",
+        "leftRearWindow",
+        "rightRearWindow",
+        # *WindowDegree fields report movement acceleration, not
+        # window position — removed in v1.2.0.
+        "leftAnteriorWindowDegree",
+        "rightAnteriorWindowDegree",
+        "leftRearWindowDegree",
+        "rightRearWindowDegree",
+    ],
+)
+def test_mapped_keys_excludes_fields_removed_in_v1_2_0(key):
+    assert key not in telemetry.MAPPED_KEYS
