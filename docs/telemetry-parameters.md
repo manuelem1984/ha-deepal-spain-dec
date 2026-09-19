@@ -4,10 +4,10 @@ Inventario de todas las claves que el vehículo envía por MQTT, su estado de
 implementación en la integración y las comprobaciones pendientes.
 
 - **Vehículo de referencia:** Deepal S05 (VIN `LS6CME0P6TK106840`)
-- **Última captura:** 2026-09-18 (coche en uso, entrando en cochera — no en reposo)
-- **Claves recibidas en la captura:** 113
-- **Mapeadas a entidades:** 36
-- **Sin mapear:** 77
+- **Última actualización:** 2026-09-18 (limpieza v1.2.0: 4 campos confirmados como no útiles y retirados)
+- **Claves recibidas en la primera captura:** 113
+- **Mapeadas a entidades:** 37
+- **Sin mapear / descartadas deliberadamente:** 76
 
 ## Cómo capturar valores
 
@@ -56,7 +56,7 @@ Claves ya mapeadas en `telemetry.py`. No requieren acción.
 | `driverDoor` / `passengerDoor` / `leftRearDoor` / `rightRearDoor` | Puertas | |
 | `trunk` | Maletero | |
 | `driverDoorLock` / `passengerDoorLock` | Cierre | |
-| `diverWindow` / `passengerWindow` / `leftRearWindow` / `rightRearWindow` | Ventanas | `diverWindow` es errata del fabricante |
+| `diverWindow` / `passengerWindow` / `leftRearWindow` / `rightRearWindow` | ~~Ventanas~~ | ❌ Retirada en v1.2.0: duplicaba `driverDoor`/`passengerDoor`/`leftRearDoor`/`rightRearDoor` (renombradas a "Ventanilla..." al descubrir que ese era el par correcto). Se mantiene solo un conjunto de entidades. `diverWindow` es errata del fabricante |
 | `lfTyrePressure` / `rfTyrePressure` / `lrTyrePressure` / `rrTyrePressure` | Presión neumáticos | ✅ Confirmado 2026-09-18: la unidad en bruto **sí es kPa** (293,82 / 288,33 / 291,08 / 296,57 kPa ÷ 100 ≈ 2,9 / 2,9 / 2,9 / 3,0 bar, coincide con la app). Mostrado en `sensor.py` como bar vía `suggested_unit_of_measurement` (sin tocar el valor guardado) |
 | `highBeam` / `lowBeam` / `positionLamp` | Luces | |
 | `turnLndicatorLeft` / `turnLndicatorRight` | Intermitentes | `Lndicator` es errata del fabricante |
@@ -64,21 +64,20 @@ Claves ya mapeadas en `telemetry.py`. No requieren acción.
 | `airStatus` | Aire acondicionado encendido | ✅ Confirmado 2026-09-18: `1` = encendido, `0` = apagado |
 | `airConditioningHairRatings` | Velocidad del ventilador | ✅ Confirmado 2026-09-18: nivel entero (visto `2`). Rango completo (máximo) aún sin confirmar |
 | `airConditioningSetTemperature` | Consigna de temperatura del clima | ✅ Confirmado 2026-09-18: grados directos (`22.5` = 22,5 °C), sin escalar |
-| `leftAnteriorWindowDegree` / `rightAnteriorWindowDegree` / `leftRearWindowDegree` / `rightRearWindowDegree` | % de apertura de cada ventana | ✅ Confirmado 2026-09-18 solo para la delantera izquierda (`0` cerrada, `98` abierta del todo). Las otras 3 se mapean igual por simetría, pendientes de confirmar una a una. **Ojo:** el S05 no tiene marco en las ventanillas, así que al abrir la puerta el cristal baja solo un ~12% aunque no se haya tocado la ventana — es un comportamiento normal del coche, no un error de lectura |
+| `leftAnteriorWindowDegree` / `rightAnteriorWindowDegree` / `leftRearWindowDegree` / `rightRearWindowDegree` | ~~% de apertura de cada ventana~~ | ❌ Retirada en v1.2.0: confirmado el 2026-09-18 que **no** es la posición de la ventana, sino su **aceleración de movimiento** — el valor solo cambia mientras el cristal se está moviendo y vuelve a `0` en cuanto se detiene (aunque quede abierto). No sirve para saber si una ventana está abierta o cerrada, así que no se expone como entidad. Explica además un valor `12` visto repetidamente junto a la puerta abierta: el S05 no tiene marco en las ventanillas y las baja solo unos milímetros al abrir la puerta (para no rozar la junta), lo que activa brevemente este campo de aceleración sin que nadie tocara la ventana |
 
-## 2. Buscadas pero nunca recibidas
+## 2. Buscadas pero nunca recibidas (retiradas en v1.2.0)
 
-`telemetry.py` consulta estas claves y el vehículo no las envía, por lo que las
-entidades asociadas quedan permanentemente vacías. Hay que localizar el nombre
-real o retirar la entidad.
+`telemetry.py` consultaba estas claves, pero el vehículo nunca las envía — se
+ha confirmado en todas las capturas hechas hasta ahora, con el coche tanto
+parado como en marcha. Las entidades correspondientes ("Temperatura exterior"
+y "Velocidad") se han retirado en v1.2.0 en vez de dejarlas mostrando
+"Desconocido" para siempre.
 
-| Clave buscada | Entidad afectada | Acción |
+| Clave buscada | Entidad retirada | Notas |
 | --- | --- | --- |
-| `outsideTemperature`, `externalTemperature` | Temperatura exterior | X Buscar nombre real |
-| `vehicleSpeed`, `speed` | Velocidad | X Puede no exponerse en reposo |
-
-> Comprobar si aparecen con el coche en marcha: es posible que solo se envíen
-> con el contacto dado.
+| `outsideTemperature`, `externalTemperature` | Temperatura exterior | Si en el futuro aparece un nombre de campo distinto para esto, se puede volver a añadir |
+| `vehicleSpeed`, `speed` | Velocidad | Probado también con el coche circulando (entrando en cochera) sin que apareciera ninguno de los dos campos |
 
 ## 3. Candidatas prioritarias
 
