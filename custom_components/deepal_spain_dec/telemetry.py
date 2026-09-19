@@ -23,8 +23,6 @@ MAPPED_KEYS: frozenset[str] = frozenset(
         # Vehicle
         "engineStatus",
         "totalOdometer",
-        "vehicleSpeed",
-        "speed",
         "latestDate",
         "lastUpdatedAt",
         # Charging
@@ -36,8 +34,6 @@ MAPPED_KEYS: frozenset[str] = frozenset(
         "chargDeltMins",
         # Climate
         "vehicleTemperature",
-        "outsideTemperature",
-        "externalTemperature",
         "innerHumidity",
         # Doors
         "driverDoor",
@@ -48,11 +44,6 @@ MAPPED_KEYS: frozenset[str] = frozenset(
         # Locks
         "driverDoorLock",
         "passengerDoorLock",
-        # Windows
-        "diverWindow",
-        "passengerWindow",
-        "leftRearWindow",
-        "rightRearWindow",
         # Tyres
         "lfTyrePressure",
         "rfTyrePressure",
@@ -70,11 +61,6 @@ MAPPED_KEYS: frozenset[str] = frozenset(
         "airStatus",
         "airConditioningHairRatings",
         "airConditioningSetTemperature",
-        # Window opening percentage
-        "leftAnteriorWindowDegree",
-        "rightAnteriorWindowDegree",
-        "leftRearWindowDegree",
-        "rightRearWindowDegree",
     }
 )
 
@@ -194,13 +180,6 @@ def parameters_to_telemetry(
         connected=True,
         engine_on=as_bool(parameters.get("engineStatus")),
         mileage_km=as_float(parameters.get("totalOdometer")),
-        speed_kmh=as_float(
-            first_value(
-                parameters,
-                "vehicleSpeed",
-                "speed",
-            )
-        ),
         last_update=parse_datetime(
             first_value(
                 parameters,
@@ -228,13 +207,6 @@ def parameters_to_telemetry(
         inside_temperature_c=as_float(
             parameters.get("vehicleTemperature")
         ),
-        outside_temperature_c=as_float(
-            first_value(
-                parameters,
-                "outsideTemperature",
-                "externalTemperature",
-            )
-        ),
         cabin_humidity_percent=normalize_humidity(
             parameters.get("innerHumidity")
         ),
@@ -252,20 +224,6 @@ def parameters_to_telemetry(
         driver_locked=as_bool(parameters.get("driverDoorLock")),
         passenger_locked=as_bool(
             parameters.get("passengerDoorLock")
-        ),
-
-        # Windows
-        front_left_window=as_bool(
-            parameters.get("diverWindow")
-        ),
-        front_right_window=as_bool(
-            parameters.get("passengerWindow")
-        ),
-        rear_left_window=as_bool(
-            parameters.get("leftRearWindow")
-        ),
-        rear_right_window=as_bool(
-            parameters.get("rightRearWindow")
         ),
 
         # Tyres
@@ -303,21 +261,5 @@ def parameters_to_telemetry(
         ),
         climate_target_temperature_c=as_float(
             parameters.get("airConditioningSetTemperature")
-        ),
-
-        # Window opening percentage. Only the front-left key is
-        # individually confirmed against the real vehicle; the other
-        # three are mapped the same way by symmetry.
-        front_left_window_percent=as_float(
-            parameters.get("leftAnteriorWindowDegree")
-        ),
-        front_right_window_percent=as_float(
-            parameters.get("rightAnteriorWindowDegree")
-        ),
-        rear_left_window_percent=as_float(
-            parameters.get("leftRearWindowDegree")
-        ),
-        rear_right_window_percent=as_float(
-            parameters.get("rightRearWindowDegree")
         ),
     )
