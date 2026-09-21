@@ -10,5 +10,5 @@
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/manuelem1984/ha-deepal-spain-dec/issues",
   "requirements": [],
-  "version": "1.2.1b2"
+  "version": "1.2.1b3"
 }

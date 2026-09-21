@@ -78,20 +78,6 @@ CONF_VEHICLE_VIN = "vehicle_vin"
 CONF_VEHICLE_MODEL = "vehicle_model"
 CONF_VEHICLE_IMAGE_URL = "vehicle_image_url"
 CONF_MQTT_ENABLED = "mqtt_enabled"
-CONF_EXPOSE_ASSISTANTS = "expose_assistants"
-
-# Voice assistants this integration can bulk-expose its entities to.
-# Keys match Home Assistant's own assistant identifiers used by
-# async_expose_entity(); "cloud.alexa" and "cloud.google_assistant"
-# only have an effect for accounts with Home Assistant Cloud, but
-# offering them costs nothing for accounts without it.
-ASSISTANT_CHOICES = {
-    "conversation": "Asistente conversacional (Assist)",
-    "cloud.alexa": "Amazon Alexa (requiere Home Assistant Cloud)",
-    "cloud.google_assistant": (
-        "Google Assistant (requiere Home Assistant Cloud)"
-    ),
-}
 
 # Spain login methods
 LOGIN_METHOD_EMAIL = "email"
