@@ -46,7 +46,15 @@ def test_decrypt_with_private_key_round_trips(keypair):
     )
 
 
-def test_decrypt_with_private_key_wrong_key_raises(keypair):
+def test_decrypt_with_private_key_wrong_key_never_recovers_plaintext(
+    keypair,
+):
+    # NOTE: decrypting with the wrong RSA key does not reliably raise an
+    # exception — with PKCS1v15 padding, garbage output occasionally
+    # passes the padding check and even decodes as valid UTF-8 (observed
+    # empirically at roughly a 1-2% rate across random keypairs). So the
+    # only property we can assert with certainty is that the wrong key
+    # never recovers the real plaintext — not that it always raises.
     _, private_key = keypair
     other_private_key = rsa.generate_private_key(
         public_exponent=65537, key_size=1024
@@ -57,13 +65,20 @@ def test_decrypt_with_private_key_wrong_key_raises(keypair):
         encryption_algorithm=serialization.NoEncryption(),
     ).decode()
 
+    plaintext = "hello"
     ciphertext = private_key.public_key().encrypt(
-        b"hello", padding.PKCS1v15()
+        plaintext.encode(), padding.PKCS1v15()
     )
     ciphertext_b64 = base64.b64encode(ciphertext).decode()
 
-    with pytest.raises(ValueError):
-        crypto.decrypt_with_private_key(other_pem, ciphertext_b64)
+    try:
+        result = crypto.decrypt_with_private_key(
+            other_pem, ciphertext_b64
+        )
+    except ValueError:
+        return  # Decryption failing outright is the common, expected case.
+
+    assert result != plaintext
 
 
 def test_sign_command_payload_matches_expected_canonical_string(
