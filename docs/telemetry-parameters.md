@@ -4,10 +4,10 @@ Inventario de todas las claves que el vehículo envía por MQTT, su estado de
 implementación en la integración y las comprobaciones pendientes.
 
 - **Vehículo de referencia:** Deepal S05 (VIN `LS6CME0P6TK106840`)
-- **Última actualización:** 2026-09-18 (limpieza v1.2.0: 4 campos confirmados como no útiles y retirados)
+- **Última actualización:** 2026-09-19 (v1.2.1: 6 campos nuevos importados de `ha-deepal-alternative`, pendientes de confirmar con este vehículo)
 - **Claves recibidas en la primera captura:** 113
-- **Mapeadas a entidades:** 37
-- **Sin mapear / descartadas deliberadamente:** 76
+- **Mapeadas a entidades:** 43
+- **Sin mapear / descartadas deliberadamente:** 70
 
 ## Cómo capturar valores
 
@@ -46,6 +46,8 @@ Claves ya mapeadas en `telemetry.py`. No requieren acción.
 | `soc` / `socDsp` / `remainPower` | Batería (%) | Se usa la primera disponible |
 | `remainedPowerMile` / `totalResidualMileage` | Autonomía estimada | |
 | `totalOdometer` | Odómetro | |
+| `totalMeterYesterday` | Kilometraje de ayer | 🆕 v1.2.1: campo importado por comparación con otro proyecto (`ha-deepal-alternative`), pendiente de confirmar con este vehículo |
+| `igniteCumulativeMileage` | Kilometraje desde el encendido actual | 🆕 v1.2.1: ídem, pendiente de confirmar |
 | `engineStatus` | Motor encendido | |
 | `latestDate` | Última actualización | ISO 8601 |
 | `ChrgSts` | Cargando | |
@@ -58,6 +60,7 @@ Claves ya mapeadas en `telemetry.py`. No requieren acción.
 | `driverDoorLock` / `passengerDoorLock` | Cierre | |
 | `diverWindow` / `passengerWindow` / `leftRearWindow` / `rightRearWindow` | ~~Ventanas~~ | ❌ Retirada en v1.2.0: duplicaba `driverDoor`/`passengerDoor`/`leftRearDoor`/`rightRearDoor` (renombradas a "Ventanilla..." al descubrir que ese era el par correcto). Se mantiene solo un conjunto de entidades. `diverWindow` es errata del fabricante |
 | `lfTyrePressure` / `rfTyrePressure` / `lrTyrePressure` / `rrTyrePressure` | Presión neumáticos | ✅ Confirmado 2026-09-18: la unidad en bruto **sí es kPa** (293,82 / 288,33 / 291,08 / 296,57 kPa ÷ 100 ≈ 2,9 / 2,9 / 2,9 / 3,0 bar, coincide con la app). Mostrado en `sensor.py` como bar vía `suggested_unit_of_measurement` (sin tocar el valor guardado) |
+| `leftFrontTireTemperature` / `rightFrontTireTemperature` / `leftRearTireTemperature` / `rightRearTireTemperature` | Temperatura por neumático | 🆕 v1.2.1: nombres de campo descubiertos comparando con `ha-deepal-alternative` (nosotros solo teníamos la hipótesis errónea `tireTemperatureStatus`, un campo agregado que no existe). Pendiente de confirmar valores y unidad (asumido °C) con este vehículo |
 | `highBeam` / `lowBeam` / `positionLamp` | Luces | |
 | `turnLndicatorLeft` / `turnLndicatorRight` | Intermitentes | `Lndicator` es errata del fabricante |
 | `hoodStatus` | Capó | ✅ Confirmado 2026-09-18: `"0"` = cerrado, `"1"` = abierto |
@@ -128,7 +131,7 @@ Recibidas pero sin mapear. Ordenadas por utilidad práctica.
 | `rfPressureWarning` | Aviso presión del. dcha. | | | ? |
 | `lrPressureWarning` | Aviso presión tras. izq. | | | ? |
 | `rrPressureWarning` | Aviso presión tras. dcha. | | | ? |
-| `tireTemperatureStatus` | Temperatura de neumáticos | | | ? Comprobar si es global o por rueda |
+| `tireTemperatureStatus` | ~~Temperatura de neumáticos~~ | | | ❌ Hipótesis descartada en v1.2.1: no es un campo agregado. El dato real llega por rueda con otros nombres — ver `leftFrontTireTemperature`/etc. en la sección 1 (Implementadas) |
 | `tpmsLightStatus` | Testigo TPMS | | | ? |
 
 ### 3.6 Llave y accesos
@@ -220,6 +223,7 @@ espera que devuelvan cero o valores sin sentido.
 | `fuelLeftover` | - Sin depósito |
 | `remainingFuel` | - Sin depósito |
 | `remainedOilMile` | - Sin depósito |
+| `leftBackSeatHeatStatus` / `rightBackSeatHeatStatus` / `leftBackSeatVentilateStatus` / `rightBackSeatVentilateStatus` | - Detectados en `ha-deepal-alternative`, pero el Deepal S05 comercializado en España **no lleva** calefacción/ventilación en las plazas traseras — de propósito, no se implementan |
 
 > Confirmar que efectivamente valen `0`. Si devolvieran algo coherente habría
 > que revisar la hipótesis.

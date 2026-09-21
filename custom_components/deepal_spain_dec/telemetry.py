@@ -23,6 +23,8 @@ MAPPED_KEYS: frozenset[str] = frozenset(
         # Vehicle
         "engineStatus",
         "totalOdometer",
+        "totalMeterYesterday",
+        "igniteCumulativeMileage",
         "latestDate",
         "lastUpdatedAt",
         # Charging
@@ -49,6 +51,10 @@ MAPPED_KEYS: frozenset[str] = frozenset(
         "rfTyrePressure",
         "lrTyrePressure",
         "rrTyrePressure",
+        "leftFrontTireTemperature",
+        "rightFrontTireTemperature",
+        "leftRearTireTemperature",
+        "rightRearTireTemperature",
         # Lights
         "highBeam",
         "lowBeam",
@@ -180,6 +186,12 @@ def parameters_to_telemetry(
         connected=True,
         engine_on=as_bool(parameters.get("engineStatus")),
         mileage_km=as_float(parameters.get("totalOdometer")),
+        mileage_yesterday_km=as_float(
+            parameters.get("totalMeterYesterday")
+        ),
+        ignition_cumulative_mileage_km=as_float(
+            parameters.get("igniteCumulativeMileage")
+        ),
         last_update=parse_datetime(
             first_value(
                 parameters,
@@ -238,6 +250,18 @@ def parameters_to_telemetry(
         ),
         right_rear_tire_pressure=as_float(
             parameters.get("rrTyrePressure")
+        ),
+        left_front_tire_temperature_c=as_float(
+            parameters.get("leftFrontTireTemperature")
+        ),
+        right_front_tire_temperature_c=as_float(
+            parameters.get("rightFrontTireTemperature")
+        ),
+        left_rear_tire_temperature_c=as_float(
+            parameters.get("leftRearTireTemperature")
+        ),
+        right_rear_tire_temperature_c=as_float(
+            parameters.get("rightRearTireTemperature")
         ),
 
         # Lights

@@ -131,6 +131,8 @@ userId
 ## Vehicle
 
 - totalOdometer
+- totalMeterYesterday (🆕 v1.2.1, ver nota)
+- igniteCumulativeMileage (🆕 v1.2.1, ver nota)
 - latestDate
 
 ## Climate
@@ -168,6 +170,10 @@ userId
 - rfTyrePressure
 - lrTyrePressure
 - rrTyrePressure
+- leftFrontTireTemperature (🆕 v1.2.1, ver nota)
+- rightFrontTireTemperature (🆕 v1.2.1, ver nota)
+- leftRearTireTemperature (🆕 v1.2.1, ver nota)
+- rightRearTireTemperature (🆕 v1.2.1, ver nota)
 
 ## Lights
 
@@ -176,3 +182,20 @@ userId
 - positionLamp
 - turnLndicatorLeft
 - turnLndicatorRight
+
+---
+
+## Nota v1.2.1: campos importados por comparación con otro proyecto
+
+Los 6 campos marcados 🆕 no se han descubierto por captura propia, sino comparando
+con el proyecto open-source `ha-deepal-alternative` (que reverse-engineerea el
+mismo backend). Los nombres de campo son fiables (su código los usa en
+producción), pero los **valores concretos y las unidades siguen sin confirmar
+contra este vehículo** — ver `docs/telemetry-parameters.md` para el detalle y
+el plan de verificación pendiente.
+
+Ese mismo proyecto tiene además implementado el **control remoto** del
+vehículo (puertas, ventanas, maletero, clima, luces...), incluyendo el
+mecanismo de firma de comandos (RSA-SHA256 con la misma clave privada del
+login) y el PIN de control para acciones físicas. Queda como siguiente gran
+bloque de trabajo, pendiente de diseño.
