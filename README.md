@@ -17,7 +17,7 @@ Telegram: https://t.me/deepalespana_general
 - El uso de esta integración se realiza bajo tu propia responsabilidad.
 - DEC Deepal S05 es una integración no oficial para Home Assistant y no está afiliada, respaldada ni soportada por Deepal, Changan ni ningún fabricante relacionado.
 - Esta integración ha sido desarrollada específicamente para vehículos Deepal S05 comercializados en España y puede no funcionar correctamente con vehículos registrados en otros países o regiones.
-- Actualmente, esta versión proporciona únicamente acceso a información de telemetría y monitorización del vehículo. No se incluyen funciones de control remoto.
+- Además de telemetría y monitorización, incluye control remoto en beta (encender/apagar climatización y fijar temperatura, parpadear luces, tocar el claxon) — ver la sección de funcionalidades más abajo y [`docs/remote-control.md`](docs/remote-control.md) para el estado exacto de cada comando. Puertas, ventanas y maletero (requieren PIN de control) no están implementados todavía.
 - El inicio de sesión desde Home Assistant puede invalidar la sesión activa en la aplicación oficial Deepal. Del mismo modo, volver a iniciar sesión en la aplicación oficial puede requerir reautenticación en Home Assistant.
 
 ## 🚗 Vehículo Compatible
@@ -25,7 +25,7 @@ Telegram: https://t.me/deepalespana_general
 **Deepal S05 España**
 - Telemetría en tiempo real.
 - Datos de estado del vehículo.
-- Sin funciones de control remoto.
+- Control remoto en beta: climatización, luces, claxon (ver más abajo). Puertas, ventanas y maletero pendientes de una fase posterior.
 
 ## ✅ Funcionalidades Actuales
 
@@ -35,11 +35,12 @@ Telegram: https://t.me/deepalespana_general
 - Sensores binarios de estado.
 - Imagen dinámica del vehículo.
 - Actualización manual de datos desde Home Assistant.
-- **Control remoto (beta, sin probar contra el vehículo real todavía):**
-  encender/apagar la climatización y fijar temperatura, parpadear luces,
-  tocar el claxon. Ver
-  [`docs/remote-control.md`](docs/remote-control.md) — puertas, ventanas y
-  maletero (requieren PIN de control) quedan para una fase posterior.
+- **Control remoto (beta):** parpadear luces y tocar el claxon, confirmados
+  funcionando contra el vehículo real. Encender/apagar la climatización y
+  fijar temperatura está implementado pero todavía pendiente de confirmar.
+  Ver [`docs/remote-control.md`](docs/remote-control.md) — puertas,
+  ventanas y maletero (requieren PIN de control) quedan para una fase
+  posterior.
 - Integración basada en la plataforma cloud oficial utilizada por Deepal España.
 
 ## 📥 Instalación
@@ -82,6 +83,7 @@ Una vez completado el proceso, Home Assistant comenzará a mostrar la informaci�
 - Si utilizas simultáneamente la aplicación oficial y Home Assistant, puede ser necesario volver a iniciar sesión ocasionalmente.
 - El conjunto de sensores disponibles puede ampliarse en futuras versiones a medida que se descubran nuevos puntos de integración.
 - Consulta [docs/telemetry-parameters.md](docs/telemetry-parameters.md) para ver el inventario completo de parámetros que expone el vehículo y cuáles están ya implementados.
+- Consulta [docs/remote-control.md](docs/remote-control.md) para ver el estado exacto de cada comando de control remoto.
 
 ## 🚧 Estado del Proyecto
 
@@ -89,8 +91,6 @@ Una vez completado el proceso, Home Assistant comenzará a mostrar la informaci�
 Se esperan mejoras continuas, nuevas entidades y posibles cambios incompatibles entre versiones mientras evoluciona el conocimiento de las APIs utilizadas por la plataforma.
 
 Agradecimientos a la comunidad de Home Assistant por su colaboración y apoyo durante el desarrollo del proyecto.
-
-Proporcione sus comentarios sobre BizChat
 
 ## Comunidad
 

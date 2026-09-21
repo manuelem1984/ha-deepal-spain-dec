@@ -21,7 +21,6 @@ from __future__ import annotations
 import dataclasses
 from typing import Any
 
-from homeassistant.components.diagnostics import async_redact_data
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
@@ -44,9 +43,10 @@ from .const import (
 from .coordinator import DeepalSpainCoordinator
 from .telemetry import MAPPED_KEYS
 
-# Anything that identifies the vehicle, the account, or could be used to
-# authenticate as the user. Applied to both the config entry data and the
-# vehicle info block below.
+REDACTED = "**REDACTED**"
+
+# Exact key names known today to identify the vehicle, the account, or
+# something usable to authenticate as the user.
 TO_REDACT = {
     CONF_ACCESS_TOKEN,
     CONF_REFRESH_TOKEN,
@@ -65,6 +65,56 @@ TO_REDACT = {
     "vehicle_id",
     "image_url",
 }
+
+# Belt-and-braces on top of TO_REDACT: any key whose name *contains* one
+# of these (case-insensitive) is redacted too, even if nobody remembered
+# to add its exact name above. Cross-checked against another open-source
+# Deepal integration (ha-deepal-alternative), which takes the same
+# substring approach in its own redact.py. This is what will
+# automatically cover the control PIN field once phase 2 (doors/windows/
+# trunk, see docs/remote-control.md) introduces it — "pin" already
+# matches, on purpose.
+SENSITIVE_SUBSTRINGS = (
+    "token",
+    "password",
+    "secret",
+    "private_key",
+    "pin",
+    "serial",
+    "vin",
+    "device_id",
+    "user_id",
+    "email",
+    "mobile",
+)
+
+
+def _is_sensitive_key(key: Any) -> bool:
+    """Return True if this key should be redacted, by exact name or substring."""
+    if key in TO_REDACT:
+        return True
+
+    key_lower = str(key).lower()
+    return any(marker in key_lower for marker in SENSITIVE_SUBSTRINGS)
+
+
+def _redact(value: Any) -> Any:
+    """Recursively redact a diagnostics value by key name.
+
+    Unlike homeassistant.components.diagnostics.async_redact_data (exact
+    key matches only), this also catches anything whose key merely
+    *contains* a sensitive marker — see SENSITIVE_SUBSTRINGS above.
+    """
+    if isinstance(value, dict):
+        return {
+            key: REDACTED if _is_sensitive_key(key) else _redact(val)
+            for key, val in value.items()
+        }
+
+    if isinstance(value, list):
+        return [_redact(item) for item in value]
+
+    return value
 
 
 def _mapped_entities(coordinator: DeepalSpainCoordinator) -> dict[str, Any]:
@@ -110,4 +160,4 @@ async def async_get_config_entry_diagnostics(
         "config_entry_data": dict(entry.data),
     }
 
-    return async_redact_data(diagnostics, TO_REDACT)
+    return _redact(diagnostics)

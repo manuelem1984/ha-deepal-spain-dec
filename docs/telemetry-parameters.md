@@ -1,10 +1,15 @@
 # Catálogo de parámetros de telemetría
 
 Inventario de todas las claves que el vehículo envía por MQTT, su estado de
-implementación en la integración y las comprobaciones pendientes.
+implementación en la integración y las comprobaciones pendientes. Para el
+control remoto (escribir en el coche, no leerlo), ver
+[`remote-control.md`](remote-control.md).
 
 - **Vehículo de referencia:** Deepal S05 (VIN `LS6CME0P6TK106840`)
-- **Última actualización:** 2026-09-19 (v1.2.1: 6 campos nuevos importados de `ha-deepal-alternative`, pendientes de confirmar con este vehículo)
+- **Última actualización:** 2026-09-2x (v1.2.1b7/b8: renombrado de entidades
+  tras pruebas reales — confirmado que `driverDoor`/etc. son puertas, no
+  ventanas; temperatura por neumático confirmada como no funcional, pendiente
+  de diagnósticos)
 - **Claves recibidas en la primera captura:** 113
 - **Mapeadas a entidades:** 43
 - **Sin mapear / descartadas deliberadamente:** 70
@@ -48,25 +53,25 @@ Claves ya mapeadas en `telemetry.py`. No requieren acción.
 | `totalOdometer` | Odómetro | |
 | `totalMeterYesterday` | Kilometraje de ayer | 🆕 v1.2.1: campo importado por comparación con otro proyecto (`ha-deepal-alternative`), pendiente de confirmar con este vehículo |
 | `igniteCumulativeMileage` | Kilometraje desde el encendido actual | 🆕 v1.2.1: ídem, pendiente de confirmar |
-| `engineStatus` | Motor encendido | |
+| `engineStatus` | Motor - Estado | Muestra "Encendido"/"Apagado" (traducción propia, ver `strings.json`), no el texto genérico de `device_class: running` |
 | `latestDate` | Última actualización | ISO 8601 |
 | `ChrgSts` | Cargando | |
 | `BattACChrgInCurr` / `BattDCChrgInCurr` / `battACChrgInCurr` / `battDCChrgInCurr` | Corriente de carga | El fabricante envía ambas grafías |
 | `chargDeltMins` | Minutos restantes de carga | `8191` = valor nulo |
 | `vehicleTemperature` | Temperatura interior | |
 | `innerHumidity` | Humedad interior | Décimas de % (se divide entre 10) |
-| `driverDoor` / `passengerDoor` / `leftRearDoor` / `rightRearDoor` | Puertas | ✅ Confirmado contra el vehículo real: son las puertas físicas (abrir una puerta cambia esta entidad). Renombradas de "Ventanilla..." a "Puerta..." — la hipótesis anterior de que estos campos eran ventanas era incorrecta |
+| `driverDoor` / `passengerDoor` / `leftRearDoor` / `rightRearDoor` | Puerta Delantera/Trasera Izquierda/Derecha | ✅ Confirmado contra el vehículo real: son las puertas físicas (abrir una puerta cambia esta entidad). Renombradas de "Ventanilla..." a "Puerta..." en v1.2.1b7 — la hipótesis anterior de que estos campos eran ventanas era incorrecta |
 | `trunk` | Maletero | |
-| `driverDoorLock` / `passengerDoorLock` | Cierre | |
+| `driverDoorLock` / `passengerDoorLock` | Puerta Delantera Izquierda/Derecha Bloqueo | Renombradas en v1.2.1b7 (antes "Puerta del Conductor/Acompañante Bloqueo") |
 | `diverWindow` / `passengerWindow` / `leftRearWindow` / `rightRearWindow` | ~~Ventanas~~ | ❌ Retirada en v1.2.0 por duplicar el conjunto anterior. `diverWindow` es errata del fabricante. **Ojo:** dado que `driverDoor`/etc. han resultado ser las puertas de verdad, estos campos (`diverWindow`/etc.) podrían ser en realidad las ventanas — pendiente de confirmar si interesa recuperarlos como entidad de ventana en el futuro |
 | `lfTyrePressure` / `rfTyrePressure` / `lrTyrePressure` / `rrTyrePressure` | Presión neumáticos | ✅ Confirmado 2026-09-18: la unidad en bruto **sí es kPa** (293,82 / 288,33 / 291,08 / 296,57 kPa ÷ 100 ≈ 2,9 / 2,9 / 2,9 / 3,0 bar, coincide con la app). Mostrado en `sensor.py` como bar vía `suggested_unit_of_measurement` (sin tocar el valor guardado) |
-| `leftFrontTireTemperature` / `rightFrontTireTemperature` / `leftRearTireTemperature` / `rightRearTireTemperature` | Temperatura por neumático | 🆕 v1.2.1: nombres de campo descubiertos comparando con `ha-deepal-alternative` (nosotros solo teníamos la hipótesis errónea `tireTemperatureStatus`, un campo agregado que no existe). Pendiente de confirmar valores y unidad (asumido °C) con este vehículo |
+| `leftFrontTireTemperature` / `rightFrontTireTemperature` / `leftRearTireTemperature` / `rightRearTireTemperature` | Temperatura por neumático | ❌ Probado contra el vehículo real: las 4 entidades muestran "Desconocido" permanentemente. Los nombres de campo venían de `ha-deepal-alternative`, nunca confirmados con este coche — puede que el S05 no los envíe con estos nombres, o no los envíe en absoluto. **Pendiente de un volcado de diagnósticos** para decidir si se buscan con otro nombre o se retiran, como se hizo con temperatura exterior/velocidad |
 | `highBeam` / `lowBeam` / `positionLamp` | Luces | |
-| `turnLndicatorLeft` / `turnLndicatorRight` | Intermitentes | `Lndicator` es errata del fabricante |
+| `turnLndicatorLeft` / `turnLndicatorRight` | Luz Intermitente Izquierdo/Derecho | `Lndicator` es errata del fabricante. Entidades renombradas en v1.2.1b7 (antes "Intermitente izquierdo/derecho") |
 | `hoodStatus` | Capó | ✅ Confirmado 2026-09-18: `"0"` = cerrado, `"1"` = abierto |
-| `airStatus` | Aire acondicionado encendido | ✅ Confirmado 2026-09-18: `1` = encendido, `0` = apagado |
-| `airConditioningHairRatings` | Velocidad del ventilador | ✅ Confirmado 2026-09-18: nivel entero (visto `2`). Rango completo (máximo) aún sin confirmar |
-| `airConditioningSetTemperature` | Consigna de temperatura del clima | ✅ Confirmado 2026-09-18: grados directos (`22.5` = 22,5 °C), sin escalar |
+| `airStatus` | Climatizador - Estado | ✅ Confirmado 2026-09-18: `1` = encendido, `0` = apagado. Renombrada en v1.2.1b7 (antes "Aire acondicionado encendido") |
+| `airConditioningHairRatings` | Climatizador - Ventilador | ✅ Confirmado 2026-09-18: nivel entero (visto `2`). Rango completo (máximo) aún sin confirmar. Renombrada en v1.2.1b7 (antes "Velocidad del ventilador") |
+| `airConditioningSetTemperature` | Climatizador - Temperatura | ✅ Confirmado 2026-09-18: grados directos (`22.5` = 22,5 °C), sin escalar. Renombrada en v1.2.1b7 (antes "Consigna de temperatura"). **Ojo:** el comando de escritura (`control_air_conditioner`, ver `remote-control.md`) espera el valor en décimas de grado — formato distinto al de lectura, sin confirmar todavía |
 | `leftAnteriorWindowDegree` / `rightAnteriorWindowDegree` / `leftRearWindowDegree` / `rightRearWindowDegree` | ~~% de apertura de cada ventana~~ | ❌ Retirada en v1.2.0: confirmado el 2026-09-18 que **no** es la posición de la ventana, sino su **aceleración de movimiento** — el valor solo cambia mientras el cristal se está moviendo y vuelve a `0` en cuanto se detiene (aunque quede abierto). No sirve para saber si una ventana está abierta o cerrada, así que no se expone como entidad. Explica además un valor `12` visto repetidamente junto a la puerta abierta: el S05 no tiene marco en las ventanillas y las baja solo unos milímetros al abrir la puerta (para no rozar la junta), lo que activa brevemente este campo de aceleración sin que nadie tocara la ventana |
 
 ## 2. Buscadas pero nunca recibidas (retiradas en v1.2.0)
@@ -131,7 +136,7 @@ Recibidas pero sin mapear. Ordenadas por utilidad práctica.
 | `rfPressureWarning` | Aviso presión del. dcha. | | | ? |
 | `lrPressureWarning` | Aviso presión tras. izq. | | | ? |
 | `rrPressureWarning` | Aviso presión tras. dcha. | | | ? |
-| `tireTemperatureStatus` | ~~Temperatura de neumáticos~~ | | | ❌ Hipótesis descartada en v1.2.1: no es un campo agregado. El dato real llega por rueda con otros nombres — ver `leftFrontTireTemperature`/etc. en la sección 1 (Implementadas) |
+| `tireTemperatureStatus` | ~~Temperatura de neumáticos~~ | | | ❌ Hipótesis descartada en v1.2.1: no es un campo agregado. Ver `leftFrontTireTemperature`/etc. en la sección 1 — que a su vez tampoco han funcionado en la prueba real, ver nota ahí |
 | `tpmsLightStatus` | Testigo TPMS | | | ? |
 
 ### 3.6 Llave y accesos
@@ -244,7 +249,7 @@ Aplicar y anotar cada acción:
 
 1. Abrir el capó
 2. Bajar una ventanilla concreta hasta la mitad
-3. Abrir el techo solar por completo
+3. Abrir el techo solar por completo (el cristal, no solo la cortinilla)
 4. Encender la climatización a una temperatura exacta (por ejemplo 21 °C)
 5. Poner el ventilador en una velocidad concreta
 6. Activar la calefacción del asiento del conductor
@@ -257,10 +262,13 @@ anteriores.
 
 ## Pendiente de investigar
 
-- Canal de comandos: `parse_connection_config` excluye los topics con
-  `/commands/` y `/set/`. Es la vía para bloqueo remoto, climatización y otras
-  acciones. Requiere capturar el tráfico de la app oficial para conocer el
-  formato del payload.
+- **Temperatura por neumático**: confirmado que no funciona con este
+  vehículo (sección 1) — necesita un volcado de diagnósticos para decidir
+  el siguiente paso.
+- **Control remoto**: puertas, ventanas y maletero (requieren PIN) — ver
+  [`remote-control.md`](remote-control.md) para el estado completo. La
+  climatización, luces y claxon ya están implementados (sin PIN); luces y
+  claxon confirmados funcionando, climatización pendiente de una segunda
+  prueba tras el arreglo de renovación de sesión en v1.2.1b8.
 - Posición GPS: no aparece en la telemetría MQTT. Comprobar si se expone por un
   endpoint REST distinto.
-- Confirmar la unidad de presión de neumáticos.

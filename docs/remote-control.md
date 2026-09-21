@@ -6,13 +6,14 @@ las comprobaciones pendientes. Sigue el mismo formato que
 contrario: escribir en el coche, no leerlo.
 
 - **Vehículo de referencia:** Deepal S05 (VIN `LS6CME0P6TK106840`)
-- **Origen de esta información:** ninguno de estos comandos se ha probado
-  todavía contra el vehículo real. El protocolo completo (endpoints,
-  cifrado, firma) se ha reconstruido comparando con
+- **Origen de esta información:** el protocolo completo (endpoints, cifrado,
+  firma) se reconstruyó comparando con
   [`ha-deepal-alternative`](https://github.com/dbarreiro/ha-deepal-alternative),
   otro proyecto open-source que ataca el mismo backend (sus
   `INTL_BASE_URL`/`INTL_CA_BASE_URL` coinciden exactamente con nuestro
   `BASE_URL`/`CA_BASE_URL`, confirmando que es la misma infraestructura).
+  Luces y claxon ya están **confirmados funcionando contra el vehículo
+  real**; climatización sigue pendiente — ver la sección 2.
 - **Alcance de esta versión:** solo comandos que **no** requieren el PIN de
   control. Puertas, ventanas y maletero quedan para una fase posterior — ver
   la sección 3.
@@ -59,11 +60,12 @@ esperar una segunda vez** en Python — hacía falta pasar una función que la
 cree de nuevo cada vez (`lambda: self.api.control_x(...)`) para poder
 reintentar.
 
-**Pendiente de confirmar:** si el climatizador vuelve a fallar con el mismo
-código de error justo después de reautenticar manualmente, no seria un
-problema de sesión caducada sino algo específico del payload de
-`control_air_conditioner` — pendiente de que se confirme con el vehículo
-real cuál de los dos casos es.
+**Confirmado tras el arreglo:** parpadeo de luces y claxon funcionan
+correctamente. **Pendiente de confirmar:** si el climatizador sigue fallando
+con el mismo error tras este arreglo, ya no sería un problema de sesión
+caducada sino algo específico del payload de `control_air_conditioner` — la
+prueba pendiente es reautenticar manualmente una vez y, justo después,
+intentar cambiar la temperatura otra vez.
 
 ## 1. Cómo funciona el protocolo de comandos
 
@@ -92,14 +94,14 @@ Ninguno de los comandos de esta versión necesita el paso adicional del PIN
 de control (que canjea un PIN cifrado por un `rcToken` de corta duración) —
 eso solo hace falta para puertas, ventanas y maletero.
 
-## 2. Comandos implementados en v1.2.1b2
+## 2. Comandos implementados
 
 | Comando | Entidad HA | Endpoint | ¿PIN? | Estado |
 | --- | --- | --- | --- | --- |
-| Encender/apagar climatización + temperatura de consigna | `climate.climatizacion` | `control/air-conditioner` | No | ⚠️ Sin probar |
-| Parpadear luces | `button.parpadear_luces` | `control/flashing-honking` (`type=1`) | No | ⚠️ Sin probar |
-| Tocar el claxon | `button.tocar_el_claxon` | `control/flashing-honking` (`type=2`) | No | ⚠️ Sin probar |
-| Avisar al coche para que reporte datos frescos | (usado internamente tras cada comando, y por el botón "Actualizar datos del vehículo") | `control/condition-inquiry` | No | ⚠️ Sin probar |
+| Parpadear luces | `button.parpadear_luces` | `control/flashing-honking` (`type=1`) | No | ✅ Confirmado funcionando (2026-09-2x) |
+| Tocar el claxon | `button.tocar_el_claxon` | `control/flashing-honking` (`type=2`) | No | ✅ Confirmado funcionando (2026-09-2x), tras el arreglo de renovación de sesión en v1.2.1b8 |
+| Encender/apagar climatización + temperatura de consigna | `climate.climatizacion` | `control/air-conditioner` | No | ⚠️ Falló en la primera prueba con `APP_1_1_02_004`. Pendiente de reintentar tras el arreglo de v1.2.1b8 para saber si era sesión caducada o un problema del payload |
+| Avisar al coche para que reporte datos frescos | (usado internamente tras cada comando, y por el botón "Actualizar datos del vehículo") | `control/condition-inquiry` | No | ✅ Confirmado funcionando (es lo que arregla el token caducado al pulsar "Actualizar") |
 
 ### Detalles pendientes de confirmar
 
@@ -107,14 +109,17 @@ eso solo hace falta para puertas, ventanas y maletero.
   (`22.5°C` → `225`), a diferencia del campo de telemetría
   `airConditioningSetTemperature`, que ya confirmamos que llega en grados
   directos por MQTT. Son formatos distintos para lectura y escritura — hay
-  que confirmar que el `* 10` es correcto para nuestro vehículo.
+  que confirmar que el `* 10` es correcto para nuestro vehículo. Si el
+  climatizador sigue fallando tras descartar la sesión caducada, este es el
+  primer sospechoso.
 - **`windMode`**: fijo a `1` de momento (valor por defecto del proyecto de
   referencia). No se ha investigado qué otros valores acepta ni qué
   representan.
 - **`runTime`**: fijo a `30` (minutos, presumiblemente). Sin confirmar.
 - Los cuatro valores de `type` en `flashing-honking` según el proyecto de
   referencia: `0` = apagar, `1` = parpadear luces, `2` = claxon, `3` = ambos
-  a la vez. Solo usamos `1` y `2` por ahora; `3` queda para más adelante.
+  a la vez. Solo usamos `1` y `2` por ahora (ambos confirmados); `3` queda
+  para más adelante.
 
 ## 3. Pendiente para una fase posterior (requiere PIN)
 
@@ -130,16 +135,21 @@ guardar el PIN en la configuración de la integración.
 
 ## 4. Plan de verificación con el vehículo real
 
-Antes de dar esto por bueno, hace falta probar cada comando una vez y
-comparar con la app oficial:
-
-1. **Climatización**: encenderla desde Home Assistant a una temperatura
-   concreta (p. ej. 21°C) → comprobar en la app oficial que se enciende y
-   que la temperatura mostrada coincide. Repetir apagándola.
-2. **Parpadeo de luces**: pulsar el botón con el coche a la vista →
-   confirmar visualmente que parpadean las luces exteriores.
-3. **Claxon**: igual, con el coche a la vista (¡avisar a quien esté cerca!).
-4. Si alguno falla con `DeepalCommandNotReady`, comprobar que la
+1. ~~**Parpadeo de luces**: pulsar el botón con el coche a la vista →
+   confirmar visualmente que parpadean las luces exteriores.~~ ✅ Hecho.
+2. ~~**Claxon**: igual, con el coche a la vista.~~ ✅ Hecho (tras el arreglo
+   de renovación de sesión).
+3. **Climatización** (pendiente): reautenticar la integración a mano una
+   vez, y justo después intentar cambiar la temperatura desde Home
+   Assistant. Comparar con la app oficial que se enciende y que la
+   temperatura mostrada coincide.
+   - Si funciona → era caducidad de sesión, ya resuelto por el arreglo de
+     v1.2.1b8, nada más que hacer.
+   - Si vuelve a fallar con el mismo `APP_1_1_02_004` justo después de
+     reautenticar → el problema es otro (candidato principal: el formato
+     de `targetTemp`), y hay que revisar `control_air_conditioner()` con
+     los registros de depuración de ese intento concreto.
+4. Si algún comando falla con `DeepalCommandNotReady`, comprobar que la
    integración se reautenticó al menos una vez después de que se añadiera
    esta función (las entradas de configuración antiguas no tienen
    `CONF_PRIVATE_KEY` disponible para firmar comandos hasta que se

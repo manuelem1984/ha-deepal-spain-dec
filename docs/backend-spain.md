@@ -100,6 +100,22 @@ userId
 
 ---
 
+## Remote Control (sin PIN) — desde v1.2.1b2
+
+Ver [`remote-control.md`](remote-control.md) para el protocolo completo
+(firma RSA-SHA256, número de serie cifrado, etc.). Resumen de endpoints:
+
+/intl-app-gw/intl-app-car-control/api/serial-no/get
+/intl-app-gw/intl-app-car-control/api/control/air-conditioner
+/intl-app-gw/intl-app-car-control/api/control/condition-inquiry
+/intl-app-gw/intl-app-car-control/api/control/flashing-honking
+
+Confirmado contra el vehículo real: parpadeo de luces y claxon. Pendiente:
+climatización (ver `remote-control.md`, sección 4). Puertas, ventanas y
+maletero necesitan además el PIN de control — no implementado todavía.
+
+---
+
 ## Confirmaciones realizadas
 
 ✅ Login SMS España (+34)
@@ -115,6 +131,10 @@ userId
 ✅ X-Tsp-User-Token = access_token
 
 ❌ X-Tsp-User-Token = cacToken
+
+✅ Control remoto sin PIN (parpadeo de luces, claxon)
+
+⚠️ Control remoto sin PIN (climatización) — pendiente de confirmar
 
 ---
 
@@ -170,10 +190,10 @@ userId
 - rfTyrePressure
 - lrTyrePressure
 - rrTyrePressure
-- leftFrontTireTemperature (🆕 v1.2.1, ver nota)
-- rightFrontTireTemperature (🆕 v1.2.1, ver nota)
-- leftRearTireTemperature (🆕 v1.2.1, ver nota)
-- rightRearTireTemperature (🆕 v1.2.1, ver nota)
+- leftFrontTireTemperature (🆕 v1.2.1, no funcional en el vehículo real — ver nota)
+- rightFrontTireTemperature (🆕 v1.2.1, no funcional en el vehículo real — ver nota)
+- leftRearTireTemperature (🆕 v1.2.1, no funcional en el vehículo real — ver nota)
+- rightRearTireTemperature (🆕 v1.2.1, no funcional en el vehículo real — ver nota)
 
 ## Lights
 
@@ -187,15 +207,18 @@ userId
 
 ## Nota v1.2.1: campos importados por comparación con otro proyecto
 
-Los 6 campos marcados 🆕 no se han descubierto por captura propia, sino comparando
-con el proyecto open-source `ha-deepal-alternative` (que reverse-engineerea el
-mismo backend). Los nombres de campo son fiables (su código los usa en
-producción), pero los **valores concretos y las unidades siguen sin confirmar
-contra este vehículo** — ver `docs/telemetry-parameters.md` para el detalle y
-el plan de verificación pendiente.
+Los 6 campos marcados 🆕 no se descubrieron por captura propia, sino
+comparando con el proyecto open-source `ha-deepal-alternative` (que
+reverse-engineerea el mismo backend). Los dos de kilometraje siguen
+pendientes de confirmar; los 4 de temperatura por neumático ya se han
+probado contra el vehículo real y **no funcionan** (muestran "Desconocido")
+— ver `docs/telemetry-parameters.md` para el detalle y el siguiente paso
+pendiente (un volcado de diagnósticos).
 
-Ese mismo proyecto tiene además implementado el **control remoto** del
-vehículo (puertas, ventanas, maletero, clima, luces...), incluyendo el
-mecanismo de firma de comandos (RSA-SHA256 con la misma clave privada del
-login) y el PIN de control para acciones físicas. Queda como siguiente gran
-bloque de trabajo, pendiente de diseño.
+Ese mismo proyecto tenía además el control remoto del vehículo documentado
+(puertas, ventanas, maletero, clima, luces...), incluyendo el mecanismo de
+firma de comandos (RSA-SHA256 con la misma clave privada del login) y el
+PIN de control para acciones físicas. La parte sin PIN (clima, luces,
+claxon) ya está implementada — ver la sección "Remote Control" más arriba y
+`docs/remote-control.md`. Puertas/ventanas/maletero (con PIN) siguen siendo
+el siguiente gran bloque de trabajo pendiente de diseño.
