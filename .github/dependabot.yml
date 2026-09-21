@@ -1,0 +1,13 @@
+version: 2
+updates:
+  # Keep the GitHub Actions used by our own workflows up to date
+  # (actions/checkout, actions/setup-python, hacs/action, etc.).
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    commit-message:
+      prefix: "ci"
+    labels:
+      - "dependencies"
+      - "github-actions"

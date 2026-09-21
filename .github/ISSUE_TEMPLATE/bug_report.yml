@@ -1,0 +1,58 @@
+name: 🐛 Informe de fallo
+description: Algo no funciona como debería
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Antes de nada: comprueba en el
+        [documento de telemetría](https://github.com/manuelem1984/ha-deepal-spain-dec/blob/main/docs/telemetry-parameters.md)
+        y en [control remoto](https://github.com/manuelem1984/ha-deepal-spain-dec/blob/main/docs/remote-control.md)
+        si el campo o comando ya está marcado como "sin confirmar" — en ese caso, coméntalo en el propio documento en vez de abrir un issue nuevo.
+
+  - type: input
+    id: version
+    attributes:
+      label: Versión de la integración
+      description: La que aparece en Ajustes → Dispositivos y Servicios → esta integración
+      placeholder: "1.2.1b4"
+    validations:
+      required: true
+
+  - type: input
+    id: ha_version
+    attributes:
+      label: Versión de Home Assistant
+      placeholder: "2026.9.1"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: ¿Qué ha pasado?
+      description: Descripción del problema, y qué esperabas que pasara en su lugar
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Pasos para reproducirlo
+      placeholder: |
+        1. ...
+        2. ...
+    validations:
+      required: false
+
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnósticos o registro de depuración
+      description: |
+        Si puedes, adjunta el archivo de "Descargar diagnósticos" (menú ⋮ del dispositivo) o un fragmento del log con
+        `custom_components.deepal_spain_dec` en modo debug. El VIN y los tokens se ocultan automáticamente en los
+        diagnósticos, pero revisa igualmente antes de pegarlo aquí.
+      render: text
+    validations:
+      required: false

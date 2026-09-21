@@ -1,0 +1,39 @@
+name: Validate release version
+
+# Catches exactly the mistake made with v1.0.2: a release published with
+# a tag that didn't match manifest.json's version, so HACS/Home Assistant
+# kept reporting the old version even though a new tag existed.
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  check-version:
+    name: "🏷️ Tag matches manifest.json"
+    runs-on: "ubuntu-latest"
+    steps:
+      - name: Check out the repository
+        uses: "actions/checkout@v4"
+        with:
+          ref: ${{ github.event.release.target_commitish }}
+
+      - name: Compare tag with manifest.json version
+        run: |
+          set -e
+
+          TAG="${{ github.event.release.tag_name }}"
+          # Strip a leading "v" (v1.2.1b4 -> 1.2.1b4); manifest.json never has one.
+          TAG_VERSION="${TAG#v}"
+
+          MANIFEST_VERSION=$(python3 -c "import json; print(json.load(open('custom_components/deepal_spain_dec/manifest.json'))['version'])")
+
+          echo "Tag del release:        $TAG (comparando como $TAG_VERSION)"
+          echo "Versión en manifest.json: $MANIFEST_VERSION"
+
+          if [ "$TAG_VERSION" != "$MANIFEST_VERSION" ]; then
+            echo "::error::El tag del release ($TAG_VERSION) no coincide con manifest.json ($MANIFEST_VERSION). HACS mostrará la versión de manifest.json, no la del tag — corrige uno de los dos y vuelve a publicar el release."
+            exit 1
+          fi
+
+          echo "OK: el tag coincide con manifest.json"

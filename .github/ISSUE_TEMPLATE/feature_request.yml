@@ -1,0 +1,26 @@
+name: ✨ Petición de funcionalidad
+description: Proponer un sensor, comando o mejora nueva
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Si es un campo de telemetría o comando de control que crees que el coche ya expone pero no está implementado,
+        mira primero si aparece como "candidata" en
+        [`docs/telemetry-parameters.md`](https://github.com/manuelem1984/ha-deepal-spain-dec/blob/main/docs/telemetry-parameters.md)
+        o [`docs/remote-control.md`](https://github.com/manuelem1984/ha-deepal-spain-dec/blob/main/docs/remote-control.md).
+
+  - type: textarea
+    id: description
+    attributes:
+      label: ¿Qué te gustaría que hiciera la integración?
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Capturas de la app oficial o de los diagnósticos
+      description: Si tienes una captura de pantalla de la app oficial mostrando este dato/función, o un volcado de diagnósticos, ayuda mucho a confirmarlo.
+    validations:
+      required: false
