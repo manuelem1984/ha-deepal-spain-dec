@@ -28,6 +28,31 @@ DEFAULT_APP_VERSION = "V1.11.0"
 BASE_URL = "https://m.iov.changanauto.com.de"
 CA_BASE_URL = "https://ca-m.iov.changanauto.com.de"
 
+# Remote-control endpoints (reverse-engineered by cross-checking with
+# another open-source Deepal integration; not yet confirmed by us
+# against a real vehicle — see docs/remote-control.md). All of these
+# require a signed payload (see crypto.sign_command_payload) but none
+# of them need the control PIN ("rcToken") — that's only required for
+# doors/windows/trunk, not implemented yet.
+CONTROL_GET_SERIAL_NO = (
+    "/intl-app-gw/intl-app-car-control/api/serial-no/get"
+)
+CONTROL_AIR_CONDITIONER = (
+    "/intl-app-gw/intl-app-car-control/api/control/air-conditioner"
+)
+CONTROL_CONDITION_INQUIRY = (
+    "/intl-app-gw/intl-app-car-control/api/control/condition-inquiry"
+)
+CONTROL_FLASHING_HONKING = (
+    "/intl-app-gw/intl-app-car-control/api/control/flashing-honking"
+)
+
+# control_flashing_honking() action types.
+FLASH_HONK_OFF = 0
+FLASH_HONK_FLASH = 1
+FLASH_HONK_BEE = 2
+FLASH_HONK_FLASH_BEE = 3
+
 # HTTP configuration
 REQUEST_TIMEOUT = 30
 
@@ -53,6 +78,20 @@ CONF_VEHICLE_VIN = "vehicle_vin"
 CONF_VEHICLE_MODEL = "vehicle_model"
 CONF_VEHICLE_IMAGE_URL = "vehicle_image_url"
 CONF_MQTT_ENABLED = "mqtt_enabled"
+CONF_EXPOSE_ASSISTANTS = "expose_assistants"
+
+# Voice assistants this integration can bulk-expose its entities to.
+# Keys match Home Assistant's own assistant identifiers used by
+# async_expose_entity(); "cloud.alexa" and "cloud.google_assistant"
+# only have an effect for accounts with Home Assistant Cloud, but
+# offering them costs nothing for accounts without it.
+ASSISTANT_CHOICES = {
+    "conversation": "Asistente conversacional (Assist)",
+    "cloud.alexa": "Amazon Alexa (requiere Home Assistant Cloud)",
+    "cloud.google_assistant": (
+        "Google Assistant (requiere Home Assistant Cloud)"
+    ),
+}
 
 # Spain login methods
 LOGIN_METHOD_EMAIL = "email"
@@ -64,4 +103,5 @@ PLATFORMS = [
     "binary_sensor",
     "button",
     "image",
+    "climate",
 ]

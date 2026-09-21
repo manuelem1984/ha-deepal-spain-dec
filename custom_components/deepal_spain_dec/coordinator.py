@@ -3,12 +3,17 @@
 from __future__ import annotations
 
 import ssl
+from collections.abc import Coroutine
 from datetime import timedelta
 import logging
+from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.exceptions import (
+    ConfigEntryAuthFailed,
+    HomeAssistantError,
+)
 from homeassistant.helpers.update_coordinator import (
     DataUpdateCoordinator,
     UpdateFailed,
@@ -184,3 +189,46 @@ class DeepalSpainCoordinator(
             "Deepal session token refreshed silently for %s",
             self.vehicle.vehicle_id,
         )
+
+    async def async_send_command(
+        self,
+        command: Coroutine[Any, Any, str],
+        *,
+        refresh_after: bool = True,
+    ) -> None:
+        """Run a signed remote command and translate failures for entities.
+
+        First cut of remote control: no optimistic local state update
+        and no fast-polling loop yet (unlike a more mature
+        implementation might have) — after a successful command this
+        nudges the vehicle for fresh data and asks the coordinator to
+        poll once, but the entity may still show the old value for a
+        few seconds, or until the next 5-minute cycle if the nudge or
+        that one extra poll don't catch the change in time. See
+        docs/remote-control.md.
+        """
+        try:
+            await command
+        except DeepalAuthError as error:
+            raise HomeAssistantError(
+                "La sesión de Deepal ha caducado; reautentica la "
+                f"integración: {error}"
+            ) from error
+        except DeepalApiError as error:
+            raise HomeAssistantError(
+                f"El comando de Deepal ha fallado: {error}"
+            ) from error
+
+        if not refresh_after:
+            return
+
+        try:
+            await self.api.control_condition_inquiry(
+                self.vehicle.vehicle_id
+            )
+        except DeepalApiError:
+            # Best-effort nudge only; the regular poll cycle will
+            # catch up regardless.
+            pass
+
+        await self.async_request_refresh()

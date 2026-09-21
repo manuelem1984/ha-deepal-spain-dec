@@ -27,13 +27,28 @@ class DeepalRateLimitError(DeepalApiError):
     """Raised when Deepal limits verification-code requests."""
 
 
+class DeepalCommandNotReady(DeepalApiError):
+    """Raised when a remote command can't be signed or sent yet.
+
+    Covers a missing login private key (e.g. an entry created before
+    signed commands existed and never reauthenticated since) and a
+    vehicle serial number that fails to decrypt with it.
+    """
+
+
 # Deepal error codes observed in the wild that mean the session token is
 # no longer valid, beyond the generic "AUTH" / "401" patterns already
-# checked in is_auth_error().
+# checked in is_auth_error(). The three added alongside APP_1_1_02_004/
+# 005 come from cross-checking with another open-source Deepal
+# integration (ha-deepal-alternative) that documents them as gateway
+# kick-out codes; not yet each individually observed by us.
 KNOWN_AUTH_ERROR_CODES = frozenset(
     {
+        "APP_1_1_02_003",
         "APP_1_1_02_004",
         "APP_1_1_02_005",
+        "APP_1_1_02_006",
+        "CAC_1_1_01_045",
     }
 )
 

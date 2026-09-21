@@ -25,6 +25,13 @@ from custom_components.deepal_spain_dec import api_errors
         ("401_UNAUTHORIZED", "unauthorized"),
         ("APP_1_1_02_004", "some message"),
         ("APP_1_1_02_005", "some message"),
+        # Added after cross-checking with another open-source Deepal
+        # integration (ha-deepal-alternative), which documents these
+        # as additional gateway kick-out codes; not yet each
+        # individually observed by us.
+        ("APP_1_1_02_003", "some message"),
+        ("APP_1_1_02_006", "some message"),
+        ("CAC_1_1_01_045", "some message"),
         # Case-insensitivity and alternate wording.
         ("app_auth_failed", "SESSION EXPIRED"),
         ("SYS_1_1_01_099", "the token has expired, please sign in again"),
@@ -47,3 +54,12 @@ def test_is_auth_error_true_cases(code, message):
 )
 def test_is_auth_error_false_cases(code, message):
     assert api_errors.is_auth_error(code, message) is False
+
+
+def test_deepal_command_not_ready_is_a_deepal_api_error():
+    # Sanity check: coordinator.async_send_command() catches
+    # DeepalApiError broadly, so DeepalCommandNotReady (missing/broken
+    # login private key) must be a subclass for that to work.
+    assert issubclass(
+        api_errors.DeepalCommandNotReady, api_errors.DeepalApiError
+    )

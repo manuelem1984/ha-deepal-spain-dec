@@ -7,6 +7,9 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import DeepalApiClient
+from .assistant_exposure import (
+    async_apply_assistant_exposure_to_entry,
+)
 from .const import (
     CONF_ACCESS_TOKEN,
     CONF_CAC_TOKEN,
@@ -14,6 +17,7 @@ from .const import (
     CONF_CA_USER_ID,
     CONF_DEVICE_ID,
     CONF_MQTT_ENABLED,
+    CONF_PRIVATE_KEY,
     CONF_REFRESH_TOKEN,
     CONF_USER_ID,
     CONF_VEHICLE_ID,
@@ -37,6 +41,7 @@ async def async_setup_entry(
         device_id=entry.data[CONF_DEVICE_ID],
         access_token=entry.data[CONF_ACCESS_TOKEN],
         cac_token=entry.data.get(CONF_CAC_TOKEN),
+        private_key_pem=entry.data.get(CONF_PRIVATE_KEY),
     )
 
     session = DeepalSession(
@@ -77,7 +82,26 @@ async def async_setup_entry(
         PLATFORMS,
     )
 
+    # Apply once for entities that already existed (e.g. after a
+    # restart); new entities apply it themselves as they're added
+    # (see DeepalSpainEntity.async_added_to_hass). Both are no-ops
+    # until the user has opened the integration's Options at least
+    # once.
+    async_apply_assistant_exposure_to_entry(hass, entry)
+
+    entry.async_on_unload(
+        entry.add_update_listener(_async_options_updated)
+    )
+
     return True
+
+
+async def _async_options_updated(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+) -> None:
+    """Re-apply voice-assistant exposure right after the options change."""
+    async_apply_assistant_exposure_to_entry(hass, entry)
 
 
 async def async_unload_entry(

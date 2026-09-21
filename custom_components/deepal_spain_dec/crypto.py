@@ -9,6 +9,7 @@ import json
 from typing import Any
 
 from cryptography.hazmat.primitives import (
+    hashes,
     padding as symmetric_padding,
     serialization,
 )
@@ -154,3 +155,90 @@ def encrypt_mqtt_payload(
     )
 
     return base64.b64encode(encrypted_data).decode()
+
+
+# ------------------------------------------------------------------
+# Remote commands
+# ------------------------------------------------------------------
+#
+# Reverse-engineered by cross-checking with another open-source Deepal
+# integration (ha-deepal-alternative), which targets the same backend
+# (its INTL_BASE_URL/INTL_CA_BASE_URL match ours exactly). Not yet
+# confirmed by us against a real command sent to a vehicle — see
+# docs/remote-control.md.
+
+# Fields the official app never includes when computing a command's
+# signature, regardless of what else is in the payload.
+_SIGNATURE_EXCLUDED_KEYS = frozenset({"sign", "class", "command"})
+
+
+def decrypt_with_private_key(
+    private_key_pem: str,
+    ciphertext_base64: str,
+) -> str:
+    """Decrypt a value with our own login private key (PKCS#1 v1.5).
+
+    Used for the encrypted vehicle serial number the app fetches right
+    before signing a remote command.
+    """
+    private_key = serialization.load_pem_private_key(
+        private_key_pem.encode(),
+        password=None,
+    )
+
+    ciphertext = decode_base64(
+        "".join(ciphertext_base64.split())
+    )
+
+    try:
+        return private_key.decrypt(
+            ciphertext,
+            padding.PKCS1v15(),
+        ).decode().strip()
+    except ValueError as err:
+        raise ValueError(
+            "Could not decrypt the value with the login private key"
+        ) from err
+
+
+def sign_command_payload(
+    private_key_pem: str,
+    payload: dict[str, Any],
+) -> str:
+    """Sign a remote-command payload the same way the official app does.
+
+    Canonical string: every key of `payload` except `sign`, `class` and
+    `command`, sorted alphabetically, joined as "key=value&key=value..."
+    (booleans lowercased, ``None`` written as the literal string
+    "null"). Signed with RSA-SHA256 (PKCS#1 v1.5) using the same
+    private key generated at login, base64-encoded.
+    """
+    private_key = serialization.load_pem_private_key(
+        private_key_pem.encode(),
+        password=None,
+    )
+
+    parts = []
+
+    for key in sorted(payload):
+        if key in _SIGNATURE_EXCLUDED_KEYS:
+            continue
+
+        value = payload[key]
+
+        if isinstance(value, bool):
+            value = str(value).lower()
+        elif value is None:
+            value = "null"
+
+        parts.append(f"{key}={value}")
+
+    canonical = "&".join(parts)
+
+    signature = private_key.sign(
+        canonical.encode(),
+        padding.PKCS1v15(),
+        hashes.SHA256(),
+    )
+
+    return base64.encodebytes(signature).decode()
