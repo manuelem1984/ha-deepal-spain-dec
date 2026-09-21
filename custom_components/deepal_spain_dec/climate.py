@@ -113,7 +113,7 @@ class DeepalSpainClimate(DeepalSpainEntity, ClimateEntity):
         turning_on = hvac_mode != HVACMode.OFF
 
         await self.coordinator.async_send_command(
-            self.coordinator.api.control_air_conditioner(
+            lambda: self.coordinator.api.control_air_conditioner(
                 self.coordinator.vehicle.vehicle_id,
                 enabled=turning_on,
                 target_temp_c=target,
@@ -132,7 +132,7 @@ class DeepalSpainClimate(DeepalSpainEntity, ClimateEntity):
             return
 
         await self.coordinator.async_send_command(
-            self.coordinator.api.control_air_conditioner(
+            lambda: self.coordinator.api.control_air_conditioner(
                 self.coordinator.vehicle.vehicle_id,
                 enabled=True,
                 target_temp_c=float(temperature),

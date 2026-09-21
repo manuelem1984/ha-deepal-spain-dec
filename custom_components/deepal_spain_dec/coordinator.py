@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import dataclasses
 import ssl
-from collections.abc import Coroutine
+from collections.abc import Callable, Coroutine
 from datetime import timedelta
 import logging
 from typing import Any
@@ -194,7 +194,7 @@ class DeepalSpainCoordinator(
 
     async def async_send_command(
         self,
-        command: Coroutine[Any, Any, str],
+        command_factory: Callable[[], Coroutine[Any, Any, str]],
         *,
         optimistic_update: dict[str, Any] | None = None,
         refresh_after: bool = True,
@@ -202,6 +202,13 @@ class DeepalSpainCoordinator(
         retry_delay: float = 2.0,
     ) -> None:
         """Run a signed remote command and translate failures for entities.
+
+        command_factory is a zero-argument callable that returns a
+        *fresh* coroutine each time it's called (e.g.
+        ``lambda: self.api.control_air_conditioner(...)``), not an
+        already-created coroutine — a coroutine object can only be
+        awaited once, and this may need to call it a second time after
+        a silent session refresh (see _send_command_with_session_retry).
 
         optimistic_update, if given, is a {field_name: expected_value}
         mapping applied to the coordinator's data immediately after the
@@ -218,11 +225,13 @@ class DeepalSpainCoordinator(
         server-side).
         """
         try:
-            await command
+            await self._send_command_with_session_retry(
+                command_factory
+            )
         except DeepalAuthError as error:
             raise HomeAssistantError(
-                "La sesión de Deepal ha caducado; reautentica la "
-                f"integración: {error}"
+                "La sesión de Deepal ha caducado y no se ha podido "
+                f"renovar sola; reautentica la integración: {error}"
             ) from error
         except DeepalApiError as error:
             raise HomeAssistantError(
@@ -266,4 +275,33 @@ class DeepalSpainCoordinator(
             if attempt < max_retries - 1:
                 await asyncio.sleep(retry_delay)
 
-        await self.async_request_refresh()
+    async def _send_command_with_session_retry(
+        self,
+        command_factory: Callable[[], Coroutine[Any, Any, str]],
+    ) -> str:
+        """Run a signed command, silently refreshing the session once if needed.
+
+        Mirrors the same recovery _async_update_data() already does
+        for regular telemetry polls. Without this, every signed
+        command (climate, lights, horn...) surfaced a "reauthenticate"
+        error on the very first call after the token went stale, even
+        though a plain poll already recovers from that exact situation
+        on its own — observed in practice: a failed command followed
+        by pressing "Actualizar datos del vehículo" (a plain poll)
+        then letting the *next* command through fine.
+        """
+        try:
+            return await command_factory()
+        except DeepalAuthError as error:
+            if not self.session.refresh_token:
+                raise
+
+            try:
+                await self._refresh_session()
+            except DeepalApiError as refresh_error:
+                raise DeepalAuthError(
+                    f"Session refresh failed: {refresh_error}"
+                ) from refresh_error
+
+            return await command_factory()
+

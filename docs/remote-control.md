@@ -40,6 +40,31 @@ ha considerado necesario para este primer alcance (climatización, luces,
 claxon), pero habrá que revisarlo antes de dar el salto a comandos con PIN
 (puertas/ventanas/maletero), donde un estado equivocado importa más.
 
+## 0.1. Renovación silenciosa de sesión en los comandos (desde v1.2.1b8)
+
+**Hallazgo real en pruebas (2026-09-2x):** el claxon falló la primera vez
+con `APP_1_1_02_004` (sesión caducada), y funcionó justo después de pulsar
+"Actualizar datos del vehículo". La causa: el poll normal de telemetría ya
+sabía renovar la sesión sola en silencio (desde la v1.1.0b6), pero los
+comandos de control remoto no pasaban por ese mismo mecanismo — si el token
+estaba caducado, fallaban directamente pidiendo reautenticar a mano.
+
+Ahora `coordinator._send_command_with_session_retry()` hace lo mismo que ya
+hacía el poll: si el comando falla por sesión caducada, intenta renovarla en
+silencio con el `refresh_token` guardado y **reintenta el mismo comando una
+vez** antes de rendirse. Esto obligó además a cambiar cómo se pasa el
+comando a `async_send_command()`: antes se le daba la corrutina ya creada
+(`self.api.control_x(...)`), pero una corrutina **no se puede volver a
+esperar una segunda vez** en Python — hacía falta pasar una función que la
+cree de nuevo cada vez (`lambda: self.api.control_x(...)`) para poder
+reintentar.
+
+**Pendiente de confirmar:** si el climatizador vuelve a fallar con el mismo
+código de error justo después de reautenticar manualmente, no seria un
+problema de sesión caducada sino algo específico del payload de
+`control_air_conditioner` — pendiente de que se confirme con el vehículo
+real cuál de los dos casos es.
+
 ## 1. Cómo funciona el protocolo de comandos
 
 Cada comando firmado sigue estos pasos:

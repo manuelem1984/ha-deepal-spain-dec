@@ -133,7 +133,7 @@ class DeepalSpainFlashLightsButton(
     async def async_press(self) -> None:
         """Flash the vehicle's lights."""
         await self.coordinator.async_send_command(
-            self.coordinator.api.control_flashing_honking(
+            lambda: self.coordinator.api.control_flashing_honking(
                 self.coordinator.vehicle.vehicle_id,
                 FLASH_HONK_FLASH,
             ),
@@ -167,7 +167,7 @@ class DeepalSpainHonkHornButton(
     async def async_press(self) -> None:
         """Sound the vehicle's horn."""
         await self.coordinator.async_send_command(
-            self.coordinator.api.control_flashing_honking(
+            lambda: self.coordinator.api.control_flashing_honking(
                 self.coordinator.vehicle.vehicle_id,
                 FLASH_HONK_BEE,
             ),
