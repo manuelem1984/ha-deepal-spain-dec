@@ -241,4 +241,4 @@ def sign_command_payload(
         hashes.SHA256(),
     )
 
-    return base64.encodebytes(signature).decode()
+    return base64.b64encode(signature).decode()

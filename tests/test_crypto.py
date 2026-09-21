@@ -81,7 +81,7 @@ def test_sign_command_payload_matches_expected_canonical_string(
     }
 
     signature_b64 = crypto.sign_command_payload(private_pem, payload)
-    signature = base64.decodebytes(signature_b64.encode())
+    signature = base64.b64decode(signature_b64)
 
     # Sorted alphabetically, "command" excluded, booleans lowercased.
     expected_canonical = (
@@ -140,7 +140,7 @@ def test_sign_command_payload_none_becomes_literal_null(keypair):
     payload = {"a": None, "vehicleId": "veh-123"}
 
     signature_b64 = crypto.sign_command_payload(private_pem, payload)
-    signature = base64.decodebytes(signature_b64.encode())
+    signature = base64.b64decode(signature_b64)
 
     expected_canonical = "a=null&vehicleId=veh-123"
 
