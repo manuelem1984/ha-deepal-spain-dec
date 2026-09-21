@@ -1,0 +1,96 @@
+# Self-assessment against Home Assistant's integration quality scale
+# (https://developers.home-assistant.io/docs/core/integration-quality-scale/).
+#
+# As a HACS-only custom integration this file is informational — hassfest
+# does not enforce it here — but it's kept honest: real gaps are marked
+# "todo", not glossed over. Reverse-engineered against an undocumented
+# cloud API, so several rules below reference docs/telemetry-parameters.md
+# and docs/remote-control.md instead of official API documentation.
+
+rules:
+  # Bronze
+  action-setup:
+    status: exempt
+    comment: >
+      The integration does not register any custom service actions
+      (services.yaml).
+  appropriate-polling:
+    status: done
+    comment: 5-minute DataUpdateCoordinator refresh (coordinator.py).
+  brands:
+    status: done
+    comment: >
+      Local brand/ folder (icon.png, icon@2x.png), using the Home
+      Assistant 2026.3+ local-brands proxy — home-assistant/brands no
+      longer accepts new custom-integration submissions (see README).
+  common-modules:
+    status: done
+    comment: >
+      Shared base entity (entity.py), error classification
+      (api_errors.py), crypto helpers (crypto.py), telemetry mapping
+      (telemetry.py).
+  config-flow-test-coverage:
+    status: todo
+    comment: >
+      No automated tests for config_flow.py yet — would need
+      pytest-homeassistant-custom-component, not set up in this repo.
+      Currently only verified by hand against the real login flow.
+  config-flow:
+    status: done
+    comment: Full UI setup (email/SMS + verification code + vehicle pick).
+  dependency-transparency:
+    status: done
+    comment: >
+      manifest.json "requirements" is empty — aiohttp and cryptography
+      are Home Assistant core dependencies, always available.
+  docs-actions:
+    status: exempt
+    comment: No service actions to document.
+  docs-high-level-description:
+    status: done
+    comment: README.md.
+  docs-installation-instructions:
+    status: done
+    comment: README.md, HACS and manual install steps.
+  docs-removal-instructions:
+    status: todo
+    comment: README.md doesn't cover how to remove the integration yet.
+  entity-event-setup:
+    status: exempt
+    comment: >
+      No event subscriptions — entities read from the coordinator
+      (CoordinatorEntity), no state_changed listeners.
+  entity-unique-id:
+    status: done
+    comment: Set once in the shared DeepalSpainEntity base (entity.py).
+  has-entity-name:
+    status: done
+    comment: _attr_has_entity_name = True in DeepalSpainEntity.
+  runtime-data:
+    status: todo
+    comment: >
+      Still uses hass.data[DOMAIN][entry.entry_id] (the older pattern)
+      instead of ConfigEntry.runtime_data. Straightforward to migrate,
+      not done yet.
+  test-before-configure:
+    status: done
+    comment: >
+      The config flow performs the real login and fetches the vehicle
+      list before creating the entry — a failure there is surfaced as
+      a form error, not a broken entry.
+  test-before-setup:
+    status: done
+    comment: >
+      async_config_entry_first_refresh() in async_setup_entry fails
+      setup cleanly (ConfigEntryNotReady / ConfigEntryAuthFailed) if
+      the first telemetry fetch doesn't succeed.
+  unique-config-entry:
+    status: done
+    comment: >
+      async_set_unique_id(vehicle.vehicle_id) +
+      _abort_if_unique_id_configured() in config_flow.py.
+
+  # Silver, Gold, Platinum: not assessed yet. Reauthentication
+  # (ConfigEntryAuthFailed + async_step_reauth) and diagnostics.py are
+  # already implemented and would count towards Silver/Gold, but a full
+  # pass hasn't been done — left for a future housekeeping round.
