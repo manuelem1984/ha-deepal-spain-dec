@@ -44,5 +44,15 @@
       "reauth_successful": "Sesión renovada correctamente.",
       "reauth_vehicle_mismatch": "Esta cuenta no está asociada al mismo vehículo que ya tenías configurado. Inicia sesión con la cuenta correcta."
     }
+  },
+  "entity": {
+    "binary_sensor": {
+      "engine_on": {
+        "state": {
+          "on": "Encendido",
+          "off": "Apagado"
+        }
+      }
+    }
   }
 }

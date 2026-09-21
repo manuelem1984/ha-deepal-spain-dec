@@ -44,5 +44,15 @@
       "reauth_successful": "Re-authentication was successful.",
       "reauth_vehicle_mismatch": "This account is not linked to the vehicle that is already configured. Sign in with the correct account."
     }
+  },
+  "entity": {
+    "binary_sensor": {
+      "engine_on": {
+        "state": {
+          "on": "On",
+          "off": "Off"
+        }
+      }
+    }
   }
 }

@@ -221,7 +221,7 @@ SENSOR_DESCRIPTIONS: tuple[
     DeepalSensorDescription(
         key="fan_speed",
         translation_key="fan_speed",
-        name="Velocidad del ventilador",
+        name="Climatizador - Ventilador",
         icon="mdi:fan",
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda data: data.fan_speed,
@@ -229,7 +229,7 @@ SENSOR_DESCRIPTIONS: tuple[
     DeepalSensorDescription(
         key="climate_target_temperature",
         translation_key="climate_target_temperature",
-        name="Consigna de temperatura",
+        name="Climatizador - Temperatura",
         device_class=SensorDeviceClass.TEMPERATURE,
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         state_class=SensorStateClass.MEASUREMENT,

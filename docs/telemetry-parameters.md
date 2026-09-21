@@ -55,10 +55,10 @@ Claves ya mapeadas en `telemetry.py`. No requieren acción.
 | `chargDeltMins` | Minutos restantes de carga | `8191` = valor nulo |
 | `vehicleTemperature` | Temperatura interior | |
 | `innerHumidity` | Humedad interior | Décimas de % (se divide entre 10) |
-| `driverDoor` / `passengerDoor` / `leftRearDoor` / `rightRearDoor` | Puertas | |
+| `driverDoor` / `passengerDoor` / `leftRearDoor` / `rightRearDoor` | Puertas | ✅ Confirmado contra el vehículo real: son las puertas físicas (abrir una puerta cambia esta entidad). Renombradas de "Ventanilla..." a "Puerta..." — la hipótesis anterior de que estos campos eran ventanas era incorrecta |
 | `trunk` | Maletero | |
 | `driverDoorLock` / `passengerDoorLock` | Cierre | |
-| `diverWindow` / `passengerWindow` / `leftRearWindow` / `rightRearWindow` | ~~Ventanas~~ | ❌ Retirada en v1.2.0: duplicaba `driverDoor`/`passengerDoor`/`leftRearDoor`/`rightRearDoor` (renombradas a "Ventanilla..." al descubrir que ese era el par correcto). Se mantiene solo un conjunto de entidades. `diverWindow` es errata del fabricante |
+| `diverWindow` / `passengerWindow` / `leftRearWindow` / `rightRearWindow` | ~~Ventanas~~ | ❌ Retirada en v1.2.0 por duplicar el conjunto anterior. `diverWindow` es errata del fabricante. **Ojo:** dado que `driverDoor`/etc. han resultado ser las puertas de verdad, estos campos (`diverWindow`/etc.) podrían ser en realidad las ventanas — pendiente de confirmar si interesa recuperarlos como entidad de ventana en el futuro |
 | `lfTyrePressure` / `rfTyrePressure` / `lrTyrePressure` / `rrTyrePressure` | Presión neumáticos | ✅ Confirmado 2026-09-18: la unidad en bruto **sí es kPa** (293,82 / 288,33 / 291,08 / 296,57 kPa ÷ 100 ≈ 2,9 / 2,9 / 2,9 / 3,0 bar, coincide con la app). Mostrado en `sensor.py` como bar vía `suggested_unit_of_measurement` (sin tocar el valor guardado) |
 | `leftFrontTireTemperature` / `rightFrontTireTemperature` / `leftRearTireTemperature` / `rightRearTireTemperature` | Temperatura por neumático | 🆕 v1.2.1: nombres de campo descubiertos comparando con `ha-deepal-alternative` (nosotros solo teníamos la hipótesis errónea `tireTemperatureStatus`, un campo agregado que no existe). Pendiente de confirmar valores y unidad (asumido °C) con este vehículo |
 | `highBeam` / `lowBeam` / `positionLamp` | Luces | |
