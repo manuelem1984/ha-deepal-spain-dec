@@ -110,13 +110,15 @@ class DeepalSpainClimate(DeepalSpainEntity, ClimateEntity):
             self.target_temperature
             or DEFAULT_TARGET_TEMPERATURE_C
         )
+        turning_on = hvac_mode != HVACMode.OFF
 
         await self.coordinator.async_send_command(
             self.coordinator.api.control_air_conditioner(
                 self.coordinator.vehicle.vehicle_id,
-                enabled=hvac_mode != HVACMode.OFF,
+                enabled=turning_on,
                 target_temp_c=target,
-            )
+            ),
+            optimistic_update={"climate_on": turning_on},
         )
 
     async def async_set_temperature(
@@ -134,5 +136,9 @@ class DeepalSpainClimate(DeepalSpainEntity, ClimateEntity):
                 self.coordinator.vehicle.vehicle_id,
                 enabled=True,
                 target_temp_c=float(temperature),
-            )
+            ),
+            optimistic_update={
+                "climate_on": True,
+                "climate_target_temperature_c": float(temperature),
+            },
         )

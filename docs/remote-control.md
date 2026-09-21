@@ -13,9 +13,32 @@ contrario: escribir en el coche, no leerlo.
   otro proyecto open-source que ataca el mismo backend (sus
   `INTL_BASE_URL`/`INTL_CA_BASE_URL` coinciden exactamente con nuestro
   `BASE_URL`/`CA_BASE_URL`, confirmando que es la misma infraestructura).
-- **Alcance de esta versión (v1.2.1b2):** solo comandos que **no** requieren
-  el PIN de control. Puertas, ventanas y maletero quedan para una fase
-  posterior — ver la sección 3.
+- **Alcance de esta versión:** solo comandos que **no** requieren el PIN de
+  control. Puertas, ventanas y maletero quedan para una fase posterior — ver
+  la sección 3.
+
+## 0. Actualización optimista y reintento (desde v1.2.1b6)
+
+`coordinator.async_send_command()` acepta un parámetro `optimistic_update`
+(un diccionario `{campo: valor_esperado}`) que, tras un comando correcto:
+
+1. Actualiza la entidad **al momento** con el valor esperado (sin esperar a
+   ningún poll) — así la UI responde de inmediato en vez de quedarse en el
+   valor viejo varios segundos.
+2. Avisa al coche (`control_condition_inquiry`) y lanza hasta 3 reintentos
+   de refresco, separados 2 segundos, hasta que un dato real confirme el
+   cambio.
+3. Si ninguno de los 3 reintentos lo confirma, el valor optimista se queda
+   puesto hasta el siguiente ciclo normal de 5 minutos — que lo corregirá
+   en cualquier caso, sea confirmando o desmintiendo el cambio.
+
+**Limitación conocida:** no hay marcha atrás automática si el comando falla
+en silencio en el lado del servidor (es decir, si Deepal acepta el comando
+pero el coche nunca llega a aplicarlo). El valor optimista se mostraría como
+correcto durante un rato hasta que el siguiente poll real lo corrija. No se
+ha considerado necesario para este primer alcance (climatización, luces,
+claxon), pero habrá que revisarlo antes de dar el salto a comandos con PIN
+(puertas/ventanas/maletero), donde un estado equivocado importa más.
 
 ## 1. Cómo funciona el protocolo de comandos
 

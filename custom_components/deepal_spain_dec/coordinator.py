@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import dataclasses
 import ssl
 from collections.abc import Coroutine
 from datetime import timedelta
@@ -194,18 +196,26 @@ class DeepalSpainCoordinator(
         self,
         command: Coroutine[Any, Any, str],
         *,
+        optimistic_update: dict[str, Any] | None = None,
         refresh_after: bool = True,
+        max_retries: int = 3,
+        retry_delay: float = 2.0,
     ) -> None:
         """Run a signed remote command and translate failures for entities.
 
-        First cut of remote control: no optimistic local state update
-        and no fast-polling loop yet (unlike a more mature
-        implementation might have) — after a successful command this
-        nudges the vehicle for fresh data and asks the coordinator to
-        poll once, but the entity may still show the old value for a
-        few seconds, or until the next 5-minute cycle if the nudge or
-        that one extra poll don't catch the change in time. See
-        docs/remote-control.md.
+        optimistic_update, if given, is a {field_name: expected_value}
+        mapping applied to the coordinator's data immediately after the
+        command succeeds — e.g. {"climate_on": True} — so the entity
+        reflects the change right away instead of waiting on a poll.
+        This is a guess, not a confirmation: the vehicle is then
+        nudged (control_condition_inquiry) and polled up to
+        max_retries times, `retry_delay` seconds apart, until a real
+        poll confirms the same values; if it never does within those
+        retries, the optimistic guess is left in place until the next
+        regular poll cycle corrects it either way. See
+        docs/remote-control.md for the current limitations of this
+        approach (still no rollback if the command silently no-ops
+        server-side).
         """
         try:
             await command
@@ -219,6 +229,14 @@ class DeepalSpainCoordinator(
                 f"El comando de Deepal ha fallado: {error}"
             ) from error
 
+        if optimistic_update and self.data is not None:
+            self.async_set_updated_data(
+                dataclasses.replace(
+                    self.data,
+                    **optimistic_update,
+                )
+            )
+
         if not refresh_after:
             return
 
@@ -230,5 +248,22 @@ class DeepalSpainCoordinator(
             # Best-effort nudge only; the regular poll cycle will
             # catch up regardless.
             pass
+
+        for attempt in range(max_retries):
+            await self.async_request_refresh()
+
+            if not optimistic_update:
+                return
+
+            confirmed = self.data is not None and all(
+                getattr(self.data, field) == value
+                for field, value in optimistic_update.items()
+            )
+
+            if confirmed:
+                return
+
+            if attempt < max_retries - 1:
+                await asyncio.sleep(retry_delay)
 
         await self.async_request_refresh()
