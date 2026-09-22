@@ -42,6 +42,44 @@ _LOGGER = logging.getLogger(__name__)
 
 DEFAULT_UPDATE_INTERVAL = timedelta(minutes=5)
 
+# How long to poll control/control-result for, and how often, before
+# giving up and treating the command as still-pending (not failed).
+_COMMAND_RESULT_TIMEOUT = 15.0
+_COMMAND_RESULT_INTERVAL = 1.0
+
+# resultCode -> status, exactly as classified by ha-deepal-alternative
+# (custom_components/deepal/deepal/models/command.py), confirmed by
+# reading its source directly. Any code not listed here is treated as
+# "failed" (fail closed) rather than silently assumed successful.
+_COMMAND_RESULT_CODES: dict[int, str] = {
+    -100: "pending",
+    0: "success",
+    1201: "success",
+    1015: "already_done",
+    -1: "failed",
+    -2: "failed",
+}
+
+
+def _classify_command_result(payload: dict[str, Any]) -> str:
+    """Classify a control-result payload by its resultCode.
+
+    Returns one of "pending", "success", "already_done" or "failed".
+    A missing resultCode means the vehicle hasn't reported back yet
+    ("pending"); an unrecognized one is treated as "failed".
+    """
+    raw_code = payload.get("resultCode")
+
+    if raw_code is None:
+        return "pending"
+
+    try:
+        code = int(raw_code)
+    except (TypeError, ValueError):
+        return "failed"
+
+    return _COMMAND_RESULT_CODES.get(code, "failed")
+
 
 class DeepalSpainCoordinator(
     DataUpdateCoordinator[DeepalTelemetry]
@@ -77,6 +115,12 @@ class DeepalSpainCoordinator(
         # trust store from disk) and reused for every MQTT connection,
         # instead of rebuilding it on the event loop on every poll.
         self._ssl_context: ssl.SSLContext | None = None
+
+        # Guards against sending a second remote command while one is
+        # still being confirmed — pressing two buttons quickly would
+        # otherwise race two signed commands (and their optimistic
+        # updates) against each other.
+        self._command_in_progress = False
 
     async def _async_update_data(
         self,
@@ -210,70 +254,156 @@ class DeepalSpainCoordinator(
         awaited once, and this may need to call it a second time after
         a silent session refresh (see _send_command_with_session_retry).
 
+        Only one command runs at a time per vehicle: a second call
+        while one is still being confirmed raises immediately instead
+        of racing two signed commands (and their optimistic updates)
+        against each other.
+
+        After Deepal's servers accept the command (returning a
+        commandId), this polls control/control-result briefly to
+        confirm the *vehicle itself* accepted it too — a signed
+        command can still be rejected asynchronously (e.g. the car is
+        asleep or busy) even though the initial HTTP request
+        succeeded. See _async_confirm_command_accepted().
+
         optimistic_update, if given, is a {field_name: expected_value}
-        mapping applied to the coordinator's data immediately after the
-        command succeeds — e.g. {"climate_on": True} — so the entity
+        mapping applied to the coordinator's data immediately after
+        that's confirmed — e.g. {"climate_on": True} — so the entity
         reflects the change right away instead of waiting on a poll.
-        This is a guess, not a confirmation: the vehicle is then
-        nudged (control_condition_inquiry) and polled up to
-        max_retries times, `retry_delay` seconds apart, until a real
-        poll confirms the same values; if it never does within those
-        retries, the optimistic guess is left in place until the next
-        regular poll cycle corrects it either way. See
+        This is still a guess, not a telemetry confirmation: the
+        vehicle is then nudged (control_condition_inquiry) and polled
+        up to max_retries times, `retry_delay` seconds apart, until a
+        real poll confirms the same values; if it never does within
+        those retries, the optimistic guess is left in place until the
+        next regular poll cycle corrects it either way. See
         docs/remote-control.md for the current limitations of this
         approach (still no rollback if the command silently no-ops
-        server-side).
+        server-side despite being accepted).
         """
-        try:
-            await self._send_command_with_session_retry(
-                command_factory
+        if self._command_in_progress:
+            raise HomeAssistantError(
+                "Ya hay un comando de Deepal en curso; espera a que "
+                "termine antes de enviar otro."
             )
-        except DeepalAuthError as error:
-            raise HomeAssistantError(
-                "La sesión de Deepal ha caducado y no se ha podido "
-                f"renovar sola; reautentica la integración: {error}"
-            ) from error
-        except DeepalApiError as error:
-            raise HomeAssistantError(
-                f"El comando de Deepal ha fallado: {error}"
-            ) from error
 
-        if optimistic_update and self.data is not None:
-            self.async_set_updated_data(
-                dataclasses.replace(
-                    self.data,
-                    **optimistic_update,
+        self._command_in_progress = True
+        try:
+            try:
+                command_id = (
+                    await self._send_command_with_session_retry(
+                        command_factory
+                    )
                 )
-            )
+            except DeepalAuthError as error:
+                raise HomeAssistantError(
+                    "La sesión de Deepal ha caducado y no se ha "
+                    "podido renovar sola; reautentica la integración: "
+                    f"{error}"
+                ) from error
+            except DeepalApiError as error:
+                raise HomeAssistantError(
+                    f"El comando de Deepal ha fallado: {error}"
+                ) from error
 
-        if not refresh_after:
-            return
+            await self._async_confirm_command_accepted(command_id)
 
-        try:
-            await self.api.control_condition_inquiry(
-                self.vehicle.vehicle_id
-            )
-        except DeepalApiError:
-            # Best-effort nudge only; the regular poll cycle will
-            # catch up regardless.
-            pass
+            if optimistic_update and self.data is not None:
+                self.async_set_updated_data(
+                    dataclasses.replace(
+                        self.data,
+                        **optimistic_update,
+                    )
+                )
 
-        for attempt in range(max_retries):
-            await self.async_request_refresh()
-
-            if not optimistic_update:
+            if not refresh_after:
                 return
 
-            confirmed = self.data is not None and all(
-                getattr(self.data, field) == value
-                for field, value in optimistic_update.items()
-            )
+            try:
+                await self.api.control_condition_inquiry(
+                    self.vehicle.vehicle_id
+                )
+            except DeepalApiError:
+                # Best-effort nudge only; the regular poll cycle will
+                # catch up regardless.
+                pass
 
-            if confirmed:
+            for attempt in range(max_retries):
+                await self.async_request_refresh()
+
+                if not optimistic_update:
+                    return
+
+                confirmed = self.data is not None and all(
+                    getattr(self.data, field) == value
+                    for field, value in optimistic_update.items()
+                )
+
+                if confirmed:
+                    return
+
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(retry_delay)
+        finally:
+            self._command_in_progress = False
+
+    async def _async_confirm_command_accepted(
+        self,
+        command_id: str,
+    ) -> None:
+        """Poll control-result to confirm the vehicle accepted the command.
+
+        Having a commandId only means Deepal's servers accepted the
+        HTTP request — the vehicle can still reject it afterwards
+        (observed by ha-deepal-alternative as "TBOX_..." result
+        messages, typically when the car is asleep or busy). This
+        polls briefly and raises a clear HomeAssistantError if the
+        vehicle reports a failure; if it neither confirms nor fails
+        within _COMMAND_RESULT_TIMEOUT seconds, it's left as pending
+        and the command proceeds anyway — the optimistic-update poll
+        loop that follows is the fallback for that case.
+        """
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + _COMMAND_RESULT_TIMEOUT
+
+        while True:
+            try:
+                result = await self.api.get_command_result(
+                    self.vehicle.vehicle_id,
+                    command_id,
+                )
+            except DeepalApiError:
+                # Best-effort check only; don't block the command on
+                # this endpoint being unavailable.
                 return
 
-            if attempt < max_retries - 1:
-                await asyncio.sleep(retry_delay)
+            status = _classify_command_result(result)
+
+            if status == "failed":
+                error_message = result.get("errorMsg") or "sin detalle"
+                hint = (
+                    " (puede que el vehículo esté dormido u ocupado; "
+                    "prueba de nuevo después de usarlo un poco)"
+                    if "TBOX_" in str(error_message)
+                    else ""
+                )
+                raise HomeAssistantError(
+                    f"El vehículo rechazó el comando: {error_message}"
+                    f"{hint}"
+                )
+
+            if status in ("success", "already_done"):
+                return
+
+            if loop.time() >= deadline:
+                _LOGGER.debug(
+                    "Deepal command %s result still pending after "
+                    "%.0fs; continuing anyway",
+                    command_id,
+                    _COMMAND_RESULT_TIMEOUT,
+                )
+                return
+
+            await asyncio.sleep(_COMMAND_RESULT_INTERVAL)
 
     async def _send_command_with_session_retry(
         self,

@@ -22,6 +22,7 @@ from .const import (
     CONTROL_CONDITION_INQUIRY,
     CONTROL_FLASHING_HONKING,
     CONTROL_GET_SERIAL_NO,
+    CONTROL_RESULT,
     DEFAULT_APP_VERSION,
     DEFAULT_LANGUAGE,
     REQUEST_TIMEOUT,
@@ -405,3 +406,23 @@ class DeepalApiClient:
             vehicle_id,
             {"command": "flash_bee", "type": action_type},
         )
+
+    async def get_command_result(
+        self,
+        vehicle_id: str,
+        command_id: str,
+    ) -> dict[str, Any]:
+        """Fetch the raw status payload of a previously sent signed command.
+
+        Unlike the other control_* methods, this one is a plain
+        authenticated POST — no serial number to fetch, no RSA
+        signature to compute — confirmed by reading
+        ha-deepal-alternative's own client code directly. See
+        coordinator._classify_command_result() for how the response
+        (a "resultCode" field) is interpreted.
+        """
+        data = await self.post(
+            CONTROL_RESULT,
+            {"vehicleId": vehicle_id, "commandId": command_id},
+        )
+        return data if isinstance(data, dict) else {}

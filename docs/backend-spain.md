@@ -151,8 +151,6 @@ maletero necesitan además el PIN de control — no implementado todavía.
 ## Vehicle
 
 - totalOdometer
-- totalMeterYesterday (🆕 v1.2.1, ver nota)
-- igniteCumulativeMileage (🆕 v1.2.1, ver nota)
 - latestDate
 
 ## Climate
@@ -190,10 +188,6 @@ maletero necesitan además el PIN de control — no implementado todavía.
 - rfTyrePressure
 - lrTyrePressure
 - rrTyrePressure
-- leftFrontTireTemperature (🆕 v1.2.1, no funcional en el vehículo real — ver nota)
-- rightFrontTireTemperature (🆕 v1.2.1, no funcional en el vehículo real — ver nota)
-- leftRearTireTemperature (🆕 v1.2.1, no funcional en el vehículo real — ver nota)
-- rightRearTireTemperature (🆕 v1.2.1, no funcional en el vehículo real — ver nota)
 
 ## Lights
 
@@ -205,15 +199,20 @@ maletero necesitan además el PIN de control — no implementado todavía.
 
 ---
 
-## Nota v1.2.1: campos importados por comparación con otro proyecto
+## Nota v1.2.1: campos importados por comparación con otro proyecto, retirados en v1.2.1b10
 
-Los 6 campos marcados 🆕 no se descubrieron por captura propia, sino
-comparando con el proyecto open-source `ha-deepal-alternative` (que
-reverse-engineerea el mismo backend). Los dos de kilometraje siguen
-pendientes de confirmar; los 4 de temperatura por neumático ya se han
-probado contra el vehículo real y **no funcionan** (muestran "Desconocido")
-— ver `docs/telemetry-parameters.md` para el detalle y el siguiente paso
-pendiente (un volcado de diagnósticos).
+Los 6 campos importados de `ha-deepal-alternative` (otro proyecto open-source
+que ataca el mismo backend) se han retirado tras confirmar que el S05 no los
+reporta:
+
+- **Kilometraje de ayer / desde el encendido**: el propio código de
+  `ha-deepal-alternative` (`vehicle_model.py`) confirma que el S05 no manda
+  campos de kilometraje por MQTT, y excluye explícitamente esos dos sensores
+  para el S05 en su `sensor.py`.
+- **Temperatura por neumático**: probado contra el vehículo real, las 4
+  entidades mostraban siempre "Desconocido".
+
+Ver `docs/telemetry-parameters.md` para el detalle completo.
 
 Ese mismo proyecto tenía además el control remoto del vehículo documentado
 (puertas, ventanas, maletero, clima, luces...), incluyendo el mecanismo de

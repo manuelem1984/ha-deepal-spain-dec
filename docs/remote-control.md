@@ -8,7 +8,7 @@ contrario: escribir en el coche, no leerlo.
 - **Vehículo de referencia:** Deepal S05 (VIN `LS6CME0P6TK106840`)
 - **Origen de esta información:** el protocolo completo (endpoints, cifrado,
   firma) se reconstruyó comparando con
-  [`ha-deepal-alternative`](https://github.com/dbarreiro/ha-deepal-alternative),
+  [`ha-deepal-alternative`](https://github.com/Sunek0/ha-deepal-alternative),
   otro proyecto open-source que ataca el mismo backend (sus
   `INTL_BASE_URL`/`INTL_CA_BASE_URL` coinciden exactamente con nuestro
   `BASE_URL`/`CA_BASE_URL`, confirmando que es la misma infraestructura).
@@ -66,6 +66,64 @@ con el mismo error tras este arreglo, ya no sería un problema de sesión
 caducada sino algo específico del payload de `control_air_conditioner` — la
 prueba pendiente es reautenticar manualmente una vez y, justo después,
 intentar cambiar la temperatura otra vez.
+
+## 0.2. Confirmación real del comando y bloqueo de solapamiento (desde v1.2.1b10)
+
+Comparando a fondo con `ha-deepal-alternative` (ver su
+`coordinator.py`/`intl.py` reales), se encontraron dos mejoras de robustez
+que ellos ya tenían y nosotros no:
+
+**1. Comprobar si el vehículo aceptó el comando de verdad.** Hasta ahora,
+tener un `commandId` de vuelta solo significa que **los servidores de
+Deepal** aceptaron la petición HTTP — el propio **vehículo** puede rechazarla
+después, de forma asíncrona (por ejemplo, si está dormido u ocupado). El
+proyecto de referencia consulta un endpoint aparte
+(`control/control-result`) tras cada comando para saberlo con certeza; su
+código de solución de problemas dice literalmente: *"the car sometimes
+refuses every remote command until it has been driven for a few minutes"*.
+
+Ahora `coordinator._async_confirm_command_accepted()` hace lo mismo:
+
+- Llama a `api.get_command_result(vehicle_id, command_id)` — un `POST` **sin
+  firmar** (a diferencia de los demás comandos, no necesita el número de
+  serie ni la firma RSA — confirmado leyendo su código directamente).
+- Clasifica la respuesta por su campo `resultCode`, con la misma tabla que
+  usa el proyecto de referencia:
+
+  | `resultCode` | Estado |
+  | --- | --- |
+  | `0`, `1201` | Éxito |
+  | `1015` | Ya estaba hecho |
+  | `-1`, `-2` | Fallo |
+  | `-100` | Pendiente |
+  | (ausente) | Pendiente |
+  | cualquier otro | Fallo (por precaución, no se asume éxito) |
+
+- Si el resultado es un fallo, lanza un error claro al usuario en vez de
+  dejar que la actualización optimista se quede "colgada" sin explicación —
+  y si el mensaje de error contiene `TBOX_` (el patrón que usa el proyecto
+  de referencia para "el coche no aceptó el comando"), añade la pista de que
+  puede necesitar haberse usado hace poco.
+- Si tras 15 segundos sigue sin confirmar ni fallar, se continúa igualmente
+  (no bloquea el comando indefinidamente) — el resto del mecanismo de
+  actualización optimista (sección 0) sigue siendo el respaldo para ese
+  caso.
+
+**2. No solapar comandos.** Si se pulsan dos botones seguidos (por ejemplo,
+luces y clima casi a la vez), antes se enviaban los dos comandos en
+paralelo, con el riesgo de que sus actualizaciones optimistas se pisaran
+entre sí. Ahora `coordinator.async_send_command()` guarda un aviso mientras
+hay un comando en curso y rechaza cualquier otro con un mensaje claro hasta
+que termine, en vez de dejarlos correr a la vez.
+
+**Verificado sin coche real** (necesita `aiohttp`/Home Assistant, que no
+están disponibles en el entorno de desarrollo): con simulaciones a mano de
+la función de clasificación (10 casos, incluidos códigos desconocidos y no
+numéricos), del bucle de confirmación (6 escenarios: éxito inmediato, "ya
+hecho", fallo genérico, fallo `TBOX_` con la pista añadida, pendiente varias
+veces antes de confirmar, y pendiente hasta agotar el tiempo), y del
+bloqueo de solapamiento (dos comandos lanzados a la vez, confirmando que
+solo se ejecuta uno de verdad y el otro se rechaza antes de tocar la API).
 
 ## 1. Cómo funciona el protocolo de comandos
 

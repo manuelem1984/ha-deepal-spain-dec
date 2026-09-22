@@ -6,13 +6,12 @@ control remoto (escribir en el coche, no leerlo), ver
 [`remote-control.md`](remote-control.md).
 
 - **Vehículo de referencia:** Deepal S05 (VIN `LS6CME0P6TK106840`)
-- **Última actualización:** 2026-09-2x (v1.2.1b7/b8: renombrado de entidades
-  tras pruebas reales — confirmado que `driverDoor`/etc. son puertas, no
-  ventanas; temperatura por neumático confirmada como no funcional, pendiente
-  de diagnósticos)
+- **Última actualización:** 2026-09-2x (v1.2.1b10: retirados kilometraje de
+  ayer/encendido y temperatura por neumático — confirmado que el S05 no los
+  reporta, tras comparar a fondo con `ha-deepal-alternative`)
 - **Claves recibidas en la primera captura:** 113
-- **Mapeadas a entidades:** 43
-- **Sin mapear / descartadas deliberadamente:** 70
+- **Mapeadas a entidades:** 37
+- **Sin mapear / descartadas deliberadamente:** 76
 
 ## Cómo capturar valores
 
@@ -51,8 +50,6 @@ Claves ya mapeadas en `telemetry.py`. No requieren acción.
 | `soc` / `socDsp` / `remainPower` | Batería (%) | Se usa la primera disponible |
 | `remainedPowerMile` / `totalResidualMileage` | Autonomía estimada | |
 | `totalOdometer` | Odómetro | |
-| `totalMeterYesterday` | Kilometraje de ayer | 🆕 v1.2.1: campo importado por comparación con otro proyecto (`ha-deepal-alternative`), pendiente de confirmar con este vehículo |
-| `igniteCumulativeMileage` | Kilometraje desde el encendido actual | 🆕 v1.2.1: ídem, pendiente de confirmar |
 | `engineStatus` | Motor - Estado | Muestra "Encendido"/"Apagado" (traducción propia, ver `strings.json`), no el texto genérico de `device_class: running` |
 | `latestDate` | Última actualización | ISO 8601 |
 | `ChrgSts` | Cargando | |
@@ -65,7 +62,6 @@ Claves ya mapeadas en `telemetry.py`. No requieren acción.
 | `driverDoorLock` / `passengerDoorLock` | Puerta Delantera Izquierda/Derecha Bloqueo | Renombradas en v1.2.1b7 (antes "Puerta del Conductor/Acompañante Bloqueo") |
 | `diverWindow` / `passengerWindow` / `leftRearWindow` / `rightRearWindow` | ~~Ventanas~~ | ❌ Retirada en v1.2.0 por duplicar el conjunto anterior. `diverWindow` es errata del fabricante. **Ojo:** dado que `driverDoor`/etc. han resultado ser las puertas de verdad, estos campos (`diverWindow`/etc.) podrían ser en realidad las ventanas — pendiente de confirmar si interesa recuperarlos como entidad de ventana en el futuro |
 | `lfTyrePressure` / `rfTyrePressure` / `lrTyrePressure` / `rrTyrePressure` | Presión neumáticos | ✅ Confirmado 2026-09-18: la unidad en bruto **sí es kPa** (293,82 / 288,33 / 291,08 / 296,57 kPa ÷ 100 ≈ 2,9 / 2,9 / 2,9 / 3,0 bar, coincide con la app). Mostrado en `sensor.py` como bar vía `suggested_unit_of_measurement` (sin tocar el valor guardado) |
-| `leftFrontTireTemperature` / `rightFrontTireTemperature` / `leftRearTireTemperature` / `rightRearTireTemperature` | Temperatura por neumático | ❌ Probado contra el vehículo real: las 4 entidades muestran "Desconocido" permanentemente. Los nombres de campo venían de `ha-deepal-alternative`, nunca confirmados con este coche — puede que el S05 no los envíe con estos nombres, o no los envíe en absoluto. **Pendiente de un volcado de diagnósticos** para decidir si se buscan con otro nombre o se retiran, como se hizo con temperatura exterior/velocidad |
 | `highBeam` / `lowBeam` / `positionLamp` | Luces | |
 | `turnLndicatorLeft` / `turnLndicatorRight` | Luz Intermitente Izquierdo/Derecho | `Lndicator` es errata del fabricante. Entidades renombradas en v1.2.1b7 (antes "Intermitente izquierdo/derecho") |
 | `hoodStatus` | Capó | ✅ Confirmado 2026-09-18: `"0"` = cerrado, `"1"` = abierto |
@@ -74,18 +70,20 @@ Claves ya mapeadas en `telemetry.py`. No requieren acción.
 | `airConditioningSetTemperature` | Climatizador - Temperatura | ✅ Confirmado 2026-09-18: grados directos (`22.5` = 22,5 °C), sin escalar. Renombrada en v1.2.1b7 (antes "Consigna de temperatura"). **Ojo:** el comando de escritura (`control_air_conditioner`, ver `remote-control.md`) espera el valor en décimas de grado — formato distinto al de lectura, sin confirmar todavía |
 | `leftAnteriorWindowDegree` / `rightAnteriorWindowDegree` / `leftRearWindowDegree` / `rightRearWindowDegree` | ~~% de apertura de cada ventana~~ | ❌ Retirada en v1.2.0: confirmado el 2026-09-18 que **no** es la posición de la ventana, sino su **aceleración de movimiento** — el valor solo cambia mientras el cristal se está moviendo y vuelve a `0` en cuanto se detiene (aunque quede abierto). No sirve para saber si una ventana está abierta o cerrada, así que no se expone como entidad. Explica además un valor `12` visto repetidamente junto a la puerta abierta: el S05 no tiene marco en las ventanillas y las baja solo unos milímetros al abrir la puerta (para no rozar la junta), lo que activa brevemente este campo de aceleración sin que nadie tocara la ventana |
 
-## 2. Buscadas pero nunca recibidas (retiradas en v1.2.0)
+## 2. Buscadas pero nunca recibidas (retiradas)
 
 `telemetry.py` consultaba estas claves, pero el vehículo nunca las envía — se
 ha confirmado en todas las capturas hechas hasta ahora, con el coche tanto
-parado como en marcha. Las entidades correspondientes ("Temperatura exterior"
-y "Velocidad") se han retirado en v1.2.0 en vez de dejarlas mostrando
-"Desconocido" para siempre.
+parado como en marcha. Las entidades correspondientes se han retirado en vez
+de dejarlas mostrando "Desconocido" para siempre.
 
-| Clave buscada | Entidad retirada | Notas |
-| --- | --- | --- |
-| `outsideTemperature`, `externalTemperature` | Temperatura exterior | Si en el futuro aparece un nombre de campo distinto para esto, se puede volver a añadir |
-| `vehicleSpeed`, `speed` | Velocidad | Probado también con el coche circulando (entrando en cochera) sin que apareciera ninguno de los dos campos |
+| Clave buscada | Entidad retirada | Retirada en | Notas |
+| --- | --- | --- | --- |
+| `outsideTemperature`, `externalTemperature` | Temperatura exterior | v1.2.0 | Si en el futuro aparece un nombre de campo distinto para esto, se puede volver a añadir |
+| `vehicleSpeed`, `speed` | Velocidad | v1.2.0 | Probado también con el coche circulando (entrando en cochera) sin que apareciera ninguno de los dos campos |
+| `totalMeterYesterday` | Kilometraje de ayer | v1.2.1b10 | Campo importado por comparación con `ha-deepal-alternative` en v1.2.1. Ese mismo proyecto confirma en su propio código (`vehicle_model.py`) que **el S05 no manda campos de kilometraje por MQTT** — su `sensor.py` excluye explícitamente estos dos sensores para el S05 (`if ... and not is_s05(vehicle)`). No hizo falta ni probarlo con diagnósticos: la fuente que nos dio el campo confirma que no aplica a este modelo |
+| `igniteCumulativeMileage` | Kilometraje desde el encendido | v1.2.1b10 | Misma nota que la fila anterior |
+| `leftFrontTireTemperature` / `rightFrontTireTemperature` / `leftRearTireTemperature` / `rightRearTireTemperature` | Temperatura por neumático (4 entidades) | v1.2.1b10 | Probado contra el vehículo real: las 4 mostraban "Desconocido" permanentemente. A diferencia del kilometraje, `ha-deepal-alternative` no confirma ni desmiente este campo para el S05 en su código — solo crea las entidades de neumático cuando el cliente es `DeepalIntlClient` (cuentas internacionales, incluida la nuestra), sin distinguir MQTT de REST. Queda la duda abierta de si el S05 solo manda este dato en ciertas condiciones (p. ej. recién circulando) en vez de nunca — sección "Pendiente de investigar" al final de este documento |
 
 ## 3. Candidatas prioritarias
 
@@ -136,7 +134,7 @@ Recibidas pero sin mapear. Ordenadas por utilidad práctica.
 | `rfPressureWarning` | Aviso presión del. dcha. | | | ? |
 | `lrPressureWarning` | Aviso presión tras. izq. | | | ? |
 | `rrPressureWarning` | Aviso presión tras. dcha. | | | ? |
-| `tireTemperatureStatus` | ~~Temperatura de neumáticos~~ | | | ❌ Hipótesis descartada en v1.2.1: no es un campo agregado. Ver `leftFrontTireTemperature`/etc. en la sección 1 — que a su vez tampoco han funcionado en la prueba real, ver nota ahí |
+| `tireTemperatureStatus` | ~~Temperatura de neumáticos~~ | | | ❌ Hipótesis descartada en v1.2.1: no es un campo agregado. Los campos por rueda que se probaron en su lugar (`leftFrontTireTemperature`/etc.) tampoco funcionaron contra el vehículo real y se retiraron en v1.2.1b10 — ver sección 2 |
 | `tpmsLightStatus` | Testigo TPMS | | | ? |
 
 ### 3.6 Llave y accesos
@@ -262,9 +260,12 @@ anteriores.
 
 ## Pendiente de investigar
 
-- **Temperatura por neumático**: confirmado que no funciona con este
-  vehículo (sección 1) — necesita un volcado de diagnósticos para decidir
-  el siguiente paso.
+- **Temperatura por neumático**: retirada en v1.2.1b10 (sección 2). Sigue
+  abierta la duda de si el S05 la manda solo en ciertas condiciones (p. ej.
+  recién circulando, ver el hallazgo de `_merge_condition` en
+  `ha-deepal-alternative` sobre payloads MQTT parciales) en vez de nunca — si
+  alguien quiere investigarlo más adelante, capturar justo después de
+  conducir en vez de con el coche parado.
 - **Control remoto**: puertas, ventanas y maletero (requieren PIN) — ver
   [`remote-control.md`](remote-control.md) para el estado completo. La
   climatización, luces y claxon ya están implementados (sin PIN); luces y

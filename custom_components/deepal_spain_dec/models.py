@@ -63,13 +63,6 @@ class DeepalTelemetry:
 
     mileage_km: float | None = None
 
-    # Distance travelled yesterday, and cumulative distance since the
-    # current ignition cycle started. New in v1.2.1, cross-checked
-    # against another open-source Deepal integration; pending
-    # confirmation against this vehicle.
-    mileage_yesterday_km: float | None = None
-    ignition_cumulative_mileage_km: float | None = None
-
     last_update: datetime | None = None
 
     # Charging
@@ -103,15 +96,6 @@ class DeepalTelemetry:
 
     left_rear_tire_pressure: float | None = None
     right_rear_tire_pressure: float | None = None
-
-    # Tyre temperature. New in v1.2.1, cross-checked against another
-    # open-source Deepal integration (field names not previously known
-    # to us); pending confirmation against this vehicle.
-    left_front_tire_temperature_c: float | None = None
-    right_front_tire_temperature_c: float | None = None
-
-    left_rear_tire_temperature_c: float | None = None
-    right_rear_tire_temperature_c: float | None = None
 
     # Lights
     high_beam: bool | None = None

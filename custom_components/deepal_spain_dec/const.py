@@ -46,6 +46,12 @@ CONTROL_CONDITION_INQUIRY = (
 CONTROL_FLASHING_HONKING = (
     "/intl-app-gw/intl-app-car-control/api/control/flashing-honking"
 )
+# Unlike the other control/* endpoints, this one is a plain
+# authenticated POST — no serial number, no RSA signature. Confirmed
+# by reading ha-deepal-alternative's own client code directly.
+CONTROL_RESULT = (
+    "/intl-app-gw/intl-app-car-control/api/control/control-result"
+)
 
 # control_flashing_honking() action types.
 FLASH_HONK_OFF = 0

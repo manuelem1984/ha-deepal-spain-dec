@@ -177,8 +177,6 @@ def realistic_payload() -> dict:
         # Vehicle
         "engineStatus": 0,
         "totalOdometer": 12345.6,
-        "totalMeterYesterday": 42.3,
-        "igniteCumulativeMileage": 5.7,
         "latestDate": "2026-09-18T00:48:36Z",
         # Charging
         "ChrgSts": 0,
@@ -202,13 +200,6 @@ def realistic_payload() -> dict:
         "rfTyrePressure": 230,
         "lrTyrePressure": 225,
         "rrTyrePressure": 225,
-        # Tyre temperature — field names cross-checked against another
-        # open-source Deepal integration (see docs/telemetry-parameters.md),
-        # not yet confirmed against this vehicle.
-        "leftFrontTireTemperature": 28.5,
-        "rightFrontTireTemperature": 28.0,
-        "leftRearTireTemperature": 27.5,
-        "rightRearTireTemperature": 27.0,
         # Lights
         "highBeam": 0,
         "lowBeam": 0,
@@ -246,8 +237,6 @@ def test_parameters_to_telemetry_maps_known_fields(realistic_payload):
     assert result.connected is True
     assert result.engine_on is False
     assert result.mileage_km == 12345.6
-    assert result.mileage_yesterday_km == 42.3
-    assert result.ignition_cumulative_mileage_km == 5.7
     assert result.last_update == datetime(2026, 9, 18, 0, 48, 36, tzinfo=UTC)
     assert result.charging is False
     assert result.remaining_charge_minutes is None  # 8191 sentinel
@@ -256,8 +245,6 @@ def test_parameters_to_telemetry_maps_known_fields(realistic_payload):
     assert result.front_left_door is False
     assert result.driver_locked is True
     assert result.left_front_tire_pressure == 230
-    assert result.left_front_tire_temperature_c == 28.5
-    assert result.right_rear_tire_temperature_c == 27.0
     assert result.high_beam is False
     # Confirmed against the real vehicle on 2026-09-18.
     assert result.hood_open is True
@@ -271,9 +258,14 @@ def test_telemetry_has_no_removed_fields():
     # sent by the real vehicle (see docs/telemetry-parameters.md,
     # "Buscadas pero nunca recibidas"); front_left_window/etc.
     # duplicated front_left_door/etc.; the *WindowDegree fields report
-    # movement acceleration, not window position. Keeping this test
-    # ensures nobody re-adds them without re-reading why they were
-    # taken out.
+    # movement acceleration, not window position. Removed in
+    # v1.2.1b10 — mileage_yesterday_km/ignition_cumulative_mileage_km
+    # and the four tire temperature fields, imported from another
+    # open-source Deepal integration in v1.2.1, confirmed against the
+    # real vehicle (and by that project's own code, which explicitly
+    # excludes mileage_yesterday/trip for the S05) to not be reported
+    # by this vehicle. Keeping this test ensures nobody re-adds any of
+    # these without re-reading why they were taken out.
     removed_fields = {
         "speed_kmh",
         "outside_temperature_c",
@@ -285,6 +277,12 @@ def test_telemetry_has_no_removed_fields():
         "front_right_window_percent",
         "rear_left_window_percent",
         "rear_right_window_percent",
+        "mileage_yesterday_km",
+        "ignition_cumulative_mileage_km",
+        "left_front_tire_temperature_c",
+        "right_front_tire_temperature_c",
+        "left_rear_tire_temperature_c",
+        "right_rear_tire_temperature_c",
     }
     existing_fields = {
         field.name for field in dataclasses.fields(DeepalTelemetry)
@@ -353,12 +351,6 @@ def test_mapped_keys_excludes_known_unmapped_fields(key):
         "airStatus",
         "airConditioningHairRatings",
         "airConditioningSetTemperature",
-        "totalMeterYesterday",
-        "igniteCumulativeMileage",
-        "leftFrontTireTemperature",
-        "rightFrontTireTemperature",
-        "leftRearTireTemperature",
-        "rightRearTireTemperature",
     ],
 )
 def test_mapped_keys_contains_newly_mapped_fields(key):
@@ -382,6 +374,18 @@ def test_mapped_keys_contains_newly_mapped_fields(key):
         "rightAnteriorWindowDegree",
         "leftRearWindowDegree",
         "rightRearWindowDegree",
+        # totalMeterYesterday/igniteCumulativeMileage and the four
+        # *TireTemperature fields — imported from another open-source
+        # Deepal integration in v1.2.1, then confirmed against the
+        # real vehicle (and, for mileage, confirmed by that same
+        # project's own code excluding it for the S05) to not be
+        # reported for this vehicle. Removed in v1.2.1b10.
+        "totalMeterYesterday",
+        "igniteCumulativeMileage",
+        "leftFrontTireTemperature",
+        "rightFrontTireTemperature",
+        "leftRearTireTemperature",
+        "rightRearTireTemperature",
     ],
 )
 def test_mapped_keys_excludes_fields_removed_in_v1_2_0(key):
