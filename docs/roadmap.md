@@ -15,7 +15,7 @@ la siguiente versión estable.
       cada uno)
 - [ ] Añadir un botón "luces + claxon a la vez" (`FLASH_HONK_FLASH_BEE`,
       `type=3`, ya definido en `const.py` pero sin usar en ninguna entidad)
-- [ ] Investigar en `ha-deepal-alternative` si hay comandos adicionales sin
+- [ ] Investigar en otros proyectos similares si hay comandos adicionales sin
       PIN de control que podamos sumar (asientos, volante calefactado,
       desempañado)
 - [ ] Multiidioma y multipaís (desplegable de país en el config flow,
