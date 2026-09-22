@@ -64,6 +64,18 @@ TO_REDACT = {
     "vin",
     "vehicle_id",
     "image_url",
+    # Precautionary, not because we currently receive location data —
+    # investigated in depth (2026-09-2x) and found no evidence GPS is
+    # exposed anywhere in this API family, neither over MQTT (S05) nor
+    # REST (S07/SL03/L07): ha-deepal-alternative's own code has this
+    # same redaction with no corresponding field mapping or
+    # device_tracker anywhere, meaning even they treat it as "redact
+    # if it ever shows up", not a confirmed field. Using the exact key
+    # names here (not "lat"/"lon" as substrings) to avoid catching
+    # unrelated fields like "latestDate".
+    "lat",
+    "lon",
+    "lng",
 }
 
 # Belt-and-braces on top of TO_REDACT: any key whose name *contains* one
@@ -86,6 +98,8 @@ SENSITIVE_SUBSTRINGS = (
     "user_id",
     "email",
     "mobile",
+    "latitude",
+    "longitude",
 )
 
 

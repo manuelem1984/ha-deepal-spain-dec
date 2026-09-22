@@ -76,6 +76,27 @@ DEC Deepal S05 GitHub Repository
 
 Una vez completado el proceso, Home Assistant comenzará a mostrar la información disponible del vehículo.
 
+## 🗑️ Desinstalación
+
+**Desde Home Assistant (siempre, tanto si instalaste por HACS como a mano):**
+
+- Ve a `Ajustes → Dispositivos y Servicios`.
+- Busca la tarjeta `DEC Deepal S05` y ábrela.
+- Pulsa el menú ⋮ de la entrada de configuración → `Eliminar`.
+
+Esto borra el dispositivo y todas sus entidades de Home Assistant, junto con las credenciales guardadas (tokens, clave privada de login). **No** cierra la sesión en la aplicación oficial de Deepal ni afecta a tu cuenta — puedes seguir usando la app con normalidad.
+
+**Si instalaste con HACS**, además:
+
+- Ve a `HACS → Integrations`.
+- Busca `DEC Deepal S05` en tus repositorios instalados y pulsa `Eliminar`/`Desinstalar`.
+- Reinicia Home Assistant.
+
+**Si instalaste manualmente**, además:
+
+- Borra la carpeta `config/custom_components/deepal_spain_dec`.
+- Reinicia Home Assistant.
+
 ## 📝 Notas
 
 - La integración consulta periódicamente los datos almacenados en la nube de Deepal.

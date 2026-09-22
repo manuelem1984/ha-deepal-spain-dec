@@ -53,8 +53,8 @@ rules:
     status: done
     comment: README.md, HACS and manual install steps.
   docs-removal-instructions:
-    status: todo
-    comment: README.md doesn't cover how to remove the integration yet.
+    status: done
+    comment: README.md, "🗑️ Desinstalación" section (added in v1.2.1b11).
   entity-event-setup:
     status: exempt
     comment: >

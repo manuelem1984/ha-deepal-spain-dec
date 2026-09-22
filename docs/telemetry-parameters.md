@@ -271,5 +271,14 @@ anteriores.
   climatización, luces y claxon ya están implementados (sin PIN); luces y
   claxon confirmados funcionando, climatización pendiente de una segunda
   prueba tras el arreglo de renovación de sesión en v1.2.1b8.
-- Posición GPS: no aparece en la telemetría MQTT. Comprobar si se expone por un
-  endpoint REST distinto.
+- **Posición GPS**: investigado a fondo (2026-09-2x) en `ha-deepal-alternative`
+  — no hay evidencia de que se exponga en ningún sitio de esta familia de
+  API, ni por MQTT (S05) ni por REST (S07/SL03/L07). Su propio
+  `diagnostics.py` redacta `latitude`/`longitude`/`lat`/`lon`/`lng` como
+  medida preventiva, pero no hay ningún mapeo de datos real ni entidad
+  `device_tracker` en su código que use esos campos — es decir, ni siquiera
+  ellos lo han visto llegar nunca, solo se protegen por si acaso. Hemos
+  adoptado la misma redacción preventiva en nuestro propio
+  `diagnostics.py` (`lat`/`lon`/`lng` como claves exactas, `latitude`/
+  `longitude` como subcadena) desde v1.2.1b11, sin que eso implique que el
+  dato exista.
