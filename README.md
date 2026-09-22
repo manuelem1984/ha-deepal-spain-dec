@@ -35,12 +35,11 @@ Telegram: https://t.me/deepalespana_general
 - Sensores binarios de estado.
 - Imagen dinámica del vehículo.
 - Actualización manual de datos desde Home Assistant.
-- **Control remoto (beta):** parpadear luces y tocar el claxon, confirmados
-  funcionando contra el vehículo real. Encender/apagar la climatización y
-  fijar temperatura está implementado pero todavía pendiente de confirmar.
-  Ver [`docs/remote-control.md`](docs/remote-control.md) — puertas,
-  ventanas y maletero (requieren PIN de control) quedan para una fase
-  posterior.
+- **Control remoto (beta):** encender/apagar climatización y fijar
+  temperatura, parpadear luces y tocar el claxon — los tres confirmados
+  funcionando contra el vehículo real. Ver
+  [`docs/remote-control.md`](docs/remote-control.md) — puertas, ventanas y
+  maletero (requieren PIN de control) quedan para una fase posterior.
 - Integración basada en la plataforma cloud oficial utilizada por Deepal España.
 
 ## 📥 Instalación

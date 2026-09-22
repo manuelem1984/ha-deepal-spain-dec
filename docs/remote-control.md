@@ -12,8 +12,8 @@ contrario: escribir en el coche, no leerlo.
   otro proyecto open-source que ataca el mismo backend (sus
   `INTL_BASE_URL`/`INTL_CA_BASE_URL` coinciden exactamente con nuestro
   `BASE_URL`/`CA_BASE_URL`, confirmando que es la misma infraestructura).
-  Luces y claxon ya están **confirmados funcionando contra el vehículo
-  real**; climatización sigue pendiente — ver la sección 2.
+  Luces, claxon y climatización ya están **confirmados funcionando contra el
+  vehículo real** — ver la sección 2.
 - **Alcance de esta versión:** solo comandos que **no** requieren el PIN de
   control. Puertas, ventanas y maletero quedan para una fase posterior — ver
   la sección 3.
@@ -60,12 +60,10 @@ esperar una segunda vez** en Python — hacía falta pasar una función que la
 cree de nuevo cada vez (`lambda: self.api.control_x(...)`) para poder
 reintentar.
 
-**Confirmado tras el arreglo:** parpadeo de luces y claxon funcionan
-correctamente. **Pendiente de confirmar:** si el climatizador sigue fallando
-con el mismo error tras este arreglo, ya no sería un problema de sesión
-caducada sino algo específico del payload de `control_air_conditioner` — la
-prueba pendiente es reautenticar manualmente una vez y, justo después,
-intentar cambiar la temperatura otra vez.
+**Confirmado tras el arreglo:** parpadeo de luces, claxon **y climatización**
+funcionan correctamente, comparado además contra la app oficial Changan. El
+fallo original del climatizador (`APP_1_1_02_004`) era, en efecto, sesión
+caducada — no un problema del payload de `control_air_conditioner`.
 
 ## 0.2. Confirmación real del comando y bloqueo de solapamiento (desde v1.2.1b10)
 
@@ -158,7 +156,7 @@ eso solo hace falta para puertas, ventanas y maletero.
 | --- | --- | --- | --- | --- |
 | Parpadear luces | `button.parpadear_luces` | `control/flashing-honking` (`type=1`) | No | ✅ Confirmado funcionando (2026-09-2x) |
 | Tocar el claxon | `button.tocar_el_claxon` | `control/flashing-honking` (`type=2`) | No | ✅ Confirmado funcionando (2026-09-2x), tras el arreglo de renovación de sesión en v1.2.1b8 |
-| Encender/apagar climatización + temperatura de consigna | `climate.climatizacion` | `control/air-conditioner` | No | ⚠️ Falló en la primera prueba con `APP_1_1_02_004`. Pendiente de reintentar tras el arreglo de v1.2.1b8 para saber si era sesión caducada o un problema del payload |
+| Encender/apagar climatización + temperatura de consigna | `climate.climatizacion` | `control/air-conditioner` | No | ✅ Confirmado funcionando (2026-09-2x), comparado contra la app oficial Changan. El fallo inicial (`APP_1_1_02_004`) era sesión caducada, arreglado en v1.2.1b8 |
 | Avisar al coche para que reporte datos frescos | (usado internamente tras cada comando, y por el botón "Actualizar datos del vehículo") | `control/condition-inquiry` | No | ✅ Confirmado funcionando (es lo que arregla el token caducado al pulsar "Actualizar") |
 
 ### Detalles pendientes de confirmar
@@ -166,10 +164,11 @@ eso solo hace falta para puertas, ventanas y maletero.
 - **`targetTemp`**: el payload del comando espera **décimas de grado**
   (`22.5°C` → `225`), a diferencia del campo de telemetría
   `airConditioningSetTemperature`, que ya confirmamos que llega en grados
-  directos por MQTT. Son formatos distintos para lectura y escritura — hay
-  que confirmar que el `* 10` es correcto para nuestro vehículo. Si el
-  climatizador sigue fallando tras descartar la sesión caducada, este es el
-  primer sospechoso.
+  directos por MQTT. Son formatos distintos para lectura y escritura — el
+  `* 10` parece correcto (el climatizador ya confirmado funcionando lo usa),
+  pero no se ha comprobado explícitamente que la temperatura mostrada en la
+  app coincida exactamente con la pedida desde Home Assistant grado a
+  grado — sería el último detalle fino a confirmar.
 - **`windMode`**: fijo a `1` de momento (valor por defecto del proyecto de
   referencia). No se ha investigado qué otros valores acepta ni qué
   representan.
@@ -197,16 +196,12 @@ guardar el PIN en la configuración de la integración.
    confirmar visualmente que parpadean las luces exteriores.~~ ✅ Hecho.
 2. ~~**Claxon**: igual, con el coche a la vista.~~ ✅ Hecho (tras el arreglo
    de renovación de sesión).
-3. **Climatización** (pendiente): reautenticar la integración a mano una
-   vez, y justo después intentar cambiar la temperatura desde Home
-   Assistant. Comparar con la app oficial que se enciende y que la
-   temperatura mostrada coincide.
-   - Si funciona → era caducidad de sesión, ya resuelto por el arreglo de
-     v1.2.1b8, nada más que hacer.
-   - Si vuelve a fallar con el mismo `APP_1_1_02_004` justo después de
-     reautenticar → el problema es otro (candidato principal: el formato
-     de `targetTemp`), y hay que revisar `control_air_conditioner()` con
-     los registros de depuración de ese intento concreto.
+3. ~~**Climatización**: reautenticar la integración a mano una vez, y justo
+   después intentar cambiar la temperatura desde Home Assistant. Comparar
+   con la app oficial que se enciende y que la temperatura mostrada
+   coincide.~~ ✅ Hecho — confirmado funcionando, comparado contra la app
+   oficial Changan. Era sesión caducada, resuelto por el arreglo de
+   v1.2.1b8.
 4. Si algún comando falla con `DeepalCommandNotReady`, comprobar que la
    integración se reautenticó al menos una vez después de que se añadiera
    esta función (las entradas de configuración antiguas no tienen
