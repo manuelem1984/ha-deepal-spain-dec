@@ -113,7 +113,7 @@ VEHICLE_TRIM_PHOTO_GROUP = {
 VEHICLE_COLORS = {
     "andromeda_blue": "Andromeda Blue",
     "deep_space_black": "Deep Space Black",
-    "ganymede_grey": "Ganymede Grey",
+    "ganymade_grey": "Ganymade Grey",
     "mercury_silver": "Mercury Silver",
     "moonlight_white": "Moonlight White",
 }

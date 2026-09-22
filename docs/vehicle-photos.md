@@ -27,7 +27,7 @@ custom_components/deepal_spain_dec/assets/vehicle_photos/
 | --- | --- |
 | Andromeda Blue | `andromeda_blue` |
 | Deep Space Black | `deep_space_black` |
-| Ganymede Grey | `ganymede_grey` |
+| Ganymade Grey | `ganymade_grey` |
 | Mercury Silver | `mercury_silver` |
 | Moonlight White | `moonlight_white` |
 
@@ -36,12 +36,12 @@ custom_components/deepal_spain_dec/assets/vehicle_photos/
 ```
 pro_andromeda_blue.png
 pro_deep_space_black.png
-pro_ganymede_grey.png
+pro_ganymade_grey.png
 pro_mercury_silver.png
 pro_moonlight_white.png
 max_andromeda_blue.png
 max_deep_space_black.png
-max_ganymede_grey.png
+max_ganymade_grey.png
 max_mercury_silver.png
 max_moonlight_white.png
 ```
