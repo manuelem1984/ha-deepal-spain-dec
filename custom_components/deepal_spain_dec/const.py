@@ -85,6 +85,39 @@ CONF_VEHICLE_MODEL = "vehicle_model"
 CONF_VEHICLE_IMAGE_URL = "vehicle_image_url"
 CONF_MQTT_ENABLED = "mqtt_enabled"
 
+# Vehicle trim and color, chosen by the user in the integration's
+# Options (not provided by Deepal's API) so the bundled photo can
+# match their exact car instead of a generic stock shot. Both are
+# optional — if either is unset, image.py falls back to Deepal's own
+# image_url (when available) or the generic bundled photo, exactly as
+# before this feature existed.
+CONF_VEHICLE_TRIM = "vehicle_trim"
+CONF_VEHICLE_COLOR = "vehicle_color"
+
+# Officially the S05 is sold in Spain as Pro / Max / Max AWD, but Max
+# and Max AWD are mechanically different (rear-wheel vs. all-wheel
+# drive) while looking exactly the same from the outside — so they
+# share the same set of bundled photos (see VEHICLE_TRIM_PHOTO_GROUP).
+VEHICLE_TRIMS = {
+    "pro": "Pro",
+    "max": "Max",
+    "max_awd": "Max AWD",
+}
+VEHICLE_TRIM_PHOTO_GROUP = {
+    "pro": "pro",
+    "max": "max",
+    "max_awd": "max",
+}
+
+# The five official exterior colors of the Deepal S05.
+VEHICLE_COLORS = {
+    "andromeda_blue": "Andromeda Blue",
+    "deep_space_black": "Deep Space Black",
+    "ganymede_grey": "Ganymede Grey",
+    "mercury_silver": "Mercury Silver",
+    "moonlight_white": "Moonlight White",
+}
+
 # Spain login methods
 LOGIN_METHOD_EMAIL = "email"
 LOGIN_METHOD_SMS = "sms"

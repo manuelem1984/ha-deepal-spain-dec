@@ -79,7 +79,26 @@ async def async_setup_entry(
         PLATFORMS,
     )
 
+    entry.async_on_unload(
+        entry.add_update_listener(_async_options_updated)
+    )
+
     return True
+
+
+async def _async_options_updated(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+) -> None:
+    """Reload the entry when its options change.
+
+    Needed since v1.3.1: changing the vehicle trim/color in Options
+    should swap the bundled photo shown by image.py, and the image
+    entity only picks a fresh one at setup — see image.py's
+    docstring for why a reload, not just re-reading the option, is
+    needed for image_last_updated to actually advance.
+    """
+    await hass.config_entries.async_reload(entry.entry_id)
 
 
 async def async_unload_entry(

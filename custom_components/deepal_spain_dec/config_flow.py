@@ -10,6 +10,8 @@ import voluptuous as vol
 
 from homeassistant import config_entries
 from homeassistant.config_entries import SOURCE_REAUTH
+from homeassistant.core import callback
+from homeassistant.helpers import selector
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import (
@@ -28,6 +30,10 @@ from .const import (
     CONF_LOGIN_METHOD,
     CONF_MOBILE,
     CONF_MQTT_ENABLED,
+    CONF_VEHICLE_COLOR,
+    CONF_VEHICLE_TRIM,
+    VEHICLE_COLORS,
+    VEHICLE_TRIMS,
     CONF_PRIVATE_KEY,
     CONF_REFRESH_TOKEN,
     CONF_USER_ID,
@@ -54,6 +60,14 @@ class DeepalSpainDecConfigFlow(
     """Handle the Deepal Spain DEC configuration flow."""
 
     VERSION = 1
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(
+        config_entry: config_entries.ConfigEntry,
+    ) -> DeepalSpainOptionsFlow:
+        """Return the options flow for this handler."""
+        return DeepalSpainOptionsFlow()
 
     def __init__(self) -> None:
         """Initialize the configuration flow."""
@@ -320,3 +334,72 @@ class DeepalSpainDecConfigFlow(
             normalized = normalized[2:]
 
         return normalized
+
+
+class DeepalSpainOptionsFlow(config_entries.OptionsFlow):
+    """Handle Deepal Spain DEC options.
+
+    Right now the only options are the vehicle's trim and color,
+    purely cosmetic (used by image.py to show the matching bundled
+    photo instead of a generic stock shot) — Deepal's own API doesn't
+    report either. self.config_entry is provided by the base
+    OptionsFlow class; it must not be set manually here.
+    """
+
+    async def async_step_init(
+        self,
+        user_input: dict[str, Any] | None = None,
+    ):
+        """Choose this vehicle's trim and exterior color."""
+        if user_input is not None:
+            return self.async_create_entry(
+                title="",
+                data=user_input,
+            )
+
+        current_trim = self.config_entry.options.get(
+            CONF_VEHICLE_TRIM
+        )
+        current_color = self.config_entry.options.get(
+            CONF_VEHICLE_COLOR
+        )
+
+        schema = vol.Schema(
+            {
+                vol.Optional(
+                    CONF_VEHICLE_TRIM,
+                    description={"suggested_value": current_trim},
+                ): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=[
+                            selector.SelectOptionDict(
+                                value=key,
+                                label=label,
+                            )
+                            for key, label in VEHICLE_TRIMS.items()
+                        ],
+                        mode=selector.SelectSelectorMode.DROPDOWN,
+                    )
+                ),
+                vol.Optional(
+                    CONF_VEHICLE_COLOR,
+                    description={"suggested_value": current_color},
+                ): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=[
+                            selector.SelectOptionDict(
+                                value=key,
+                                label=label,
+                            )
+                            for key, label in VEHICLE_COLORS.items()
+                        ],
+                        mode=selector.SelectSelectorMode.DROPDOWN,
+                    )
+                ),
+            }
+        )
+
+        return self.async_show_form(
+            step_id="init",
+            data_schema=schema,
+        )
