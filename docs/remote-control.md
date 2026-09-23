@@ -107,21 +107,45 @@ Ahora `coordinator._async_confirm_command_accepted()` hace lo mismo:
   actualización optimista (sección 0) sigue siendo el respaldo para ese
   caso.
 
-**2. No solapar comandos.** Si se pulsan dos botones seguidos (por ejemplo,
-luces y clima casi a la vez), antes se enviaban los dos comandos en
-paralelo, con el riesgo de que sus actualizaciones optimistas se pisaran
-entre sí. Ahora `coordinator.async_send_command()` guarda un aviso mientras
-hay un comando en curso y rechaza cualquier otro con un mensaje claro hasta
-que termine, en vez de dejarlos correr a la vez.
+**2. No solapar comandos que comparten estado.** Si se pulsan dos botones
+seguidos (por ejemplo, climatización y calefacción de asiento casi a la
+vez), antes se enviaban los dos comandos en paralelo, con el riesgo de que
+sus actualizaciones optimistas se pisaran entre sí.
 
 **Verificado sin coche real** (necesita `aiohttp`/Home Assistant, que no
 están disponibles en el entorno de desarrollo): con simulaciones a mano de
 la función de clasificación (10 casos, incluidos códigos desconocidos y no
 numéricos), del bucle de confirmación (6 escenarios: éxito inmediato, "ya
 hecho", fallo genérico, fallo `TBOX_` con la pista añadida, pendiente varias
-veces antes de confirmar, y pendiente hasta agotar el tiempo), y del
-bloqueo de solapamiento (dos comandos lanzados a la vez, confirmando que
-solo se ejecuta uno de verdad y el otro se rechaza antes de tocar la API).
+veces antes de confirmar, y pendiente hasta agotar el tiempo).
+
+## 0.3. Cola de comandos con `asyncio.Lock` (desde v1.3.1b4)
+
+La primera versión del punto 2 de arriba usaba una bandera manual
+(`_command_in_progress`) que **rechazaba** el segundo comando al instante
+con un error visible — molesto si simplemente no habías esperado medio
+minuto entre una acción y otra, ya que un comando puede tardar bastante
+(hasta ~15s comprobando si el coche lo aceptó, más hasta 6s reintentando
+confirmar el cambio).
+
+Ahora es un `asyncio.Lock()` de verdad:
+
+- Los comandos que **comparten estado** (los que usan `optimistic_update` —
+  climatización, y desde esta versión también asientos, volante y
+  desempañado) se ponen **en cola** y esperan su turno, hasta 30 segundos,
+  en vez de fallar al instante. Si de verdad se supera ese tiempo (algo se
+  ha quedado atascado), ahí sí se avisa con un error claro.
+- Los comandos que **no** tocan ningún dato compartido (parpadear luces,
+  claxon, luces+claxon a la vez) **nunca esperan a nada** — se ejecutan de
+  inmediato aunque haya otro comando en curso, porque no hay ningún riesgo
+  real de que se pisen.
+
+**Verificado con simulaciones** (no con el coche real): confirmado que un
+comando sin `optimistic_update` (claxon) no espera a uno que sí lo tiene
+(climatización) en curso; que dos comandos que sí comparten estado se
+ejecutan en cola, uno tras otro, nunca a la vez; y que si el lock queda
+retenido más de 30 segundos, se lanza un error claro en vez de esperar para
+siempre.
 
 ## 1. Cómo funciona el protocolo de comandos
 
@@ -159,6 +183,12 @@ eso solo hace falta para puertas, ventanas y maletero.
 | Encender/apagar climatización + temperatura de consigna | `climate.climatizacion` | `control/air-conditioner` | No | ✅ Confirmado funcionando (2026-09-2x), comparado contra la app oficial Changan. El fallo inicial (`APP_1_1_02_004`) era sesión caducada, arreglado en v1.2.1b8 |
 | Avisar al coche para que reporte datos frescos | (usado internamente tras cada comando, y por el botón "Actualizar datos del vehículo") | `control/condition-inquiry` | No | ✅ Confirmado funcionando (es lo que arregla el token caducado al pulsar "Actualizar") |
 | Luces y claxon a la vez | `button.luces_y_claxon_a_la_vez` | `control/flashing-honking` (`type=3`) | No | ⚠️ Sin probar contra el vehículo real (añadido en v1.3.1b3) |
+| Calefacción asiento conductor (nivel 0-3) | `number.calefaccion_asiento_conductor` | `control/seats/heat` | No | ⚠️ Sin probar (añadido en v1.3.1b4) |
+| Calefacción asiento acompañante (nivel 0-3) | `number.calefaccion_asiento_acompanante` | `control/seats/heat` | No | ⚠️ Sin probar (añadido en v1.3.1b4) |
+| Ventilación asiento conductor (nivel 0-3) | `number.ventilacion_asiento_conductor` | `control/seats/wind` | No | ⚠️ Sin probar (añadido en v1.3.1b4) |
+| Ventilación asiento acompañante (nivel 0-3) | `number.ventilacion_asiento_acompanante` | `control/seats/wind` | No | ⚠️ Sin probar (añadido en v1.3.1b4) |
+| Volante calefactado (on/off) | `switch.volante_calefactado` | `control/steering-wheel/heat` | No | ⚠️ Sin probar (añadido en v1.3.1b4) |
+| Desempañado delantero (on/off) | `switch.desempanado_delantero` | `control/defrost` | No | ⚠️ Sin probar (añadido en v1.3.1b4). `ha-deepal-alternative` tiene el método en su cliente pero nunca lo conectó a ninguna entidad — somos los primeros en exponerlo |
 
 ### Detalles pendientes de confirmar
 
@@ -176,8 +206,14 @@ eso solo hace falta para puertas, ventanas y maletero.
 - **`runTime`**: fijo a `30` (minutos, presumiblemente). Sin confirmar.
 - Los cuatro valores de `type` en `flashing-honking` según el proyecto de
   referencia: `0` = apagar, `1` = parpadear luces, `2` = claxon, `3` = ambos
-  a la vez. Solo usamos `1` y `2` por ahora (ambos confirmados); `3` queda
-  para más adelante.
+  a la vez. Ya usamos los tres (`1`, `2` confirmados; `3` sin probar).
+- **Asientos (calefacción/ventilación)**: la escala 0-3 y el hecho de que
+  apagar un asiento debe mandar `switch: 0` **sin** el campo de nivel (nunca
+  un `0` explícito, el servidor lo rechazaría) están confirmados leyendo el
+  código de `ha-deepal-alternative`, pero no probados contra este vehículo.
+- **Volante calefactado y desempañado**: payloads simples (`{"open": bool}`
+  y `{"enabled": bool}` respectivamente), sin más parámetros que investigar,
+  pero tampoco probados todavía.
 
 ## 3. Pendiente para una fase posterior (requiere PIN)
 

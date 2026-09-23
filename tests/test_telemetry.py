@@ -211,6 +211,16 @@ def realistic_payload() -> dict:
         "airStatus": 1,
         "airConditioningHairRatings": 2,
         "airConditioningSetTemperature": 22.5,
+        # Seats/steering wheel/defrost — remote control added in
+        # v1.3.1b4; scale (0-6 raw ÷ 2 = 0-3 level) and field names
+        # cross-checked against ha-deepal-alternative's own MQTT
+        # parsing, not yet confirmed against this vehicle.
+        "driverSeatHeatStatus": 6,
+        "passengerSeatHeatStatus": 0,
+        "driverSeatAirStatus": 4,
+        "passengerSeatAirStatus": 2,
+        "steeringWheelHeating": 1,
+        "frontDefrostStatus": 0,
         # Fields the vehicle sends but the integration deliberately
         # does not map (see docs/telemetry-parameters.md):
         # - diverWindow/passengerWindow/leftRearWindow/rightRearWindow
@@ -251,6 +261,13 @@ def test_parameters_to_telemetry_maps_known_fields(realistic_payload):
     assert result.climate_on is True
     assert result.fan_speed == 2
     assert result.climate_target_temperature_c == 22.5
+    # Cross-checked, not yet confirmed against this vehicle.
+    assert result.driver_seat_heat_level == 3
+    assert result.passenger_seat_heat_level == 0
+    assert result.driver_seat_vent_level == 2
+    assert result.passenger_seat_vent_level == 1
+    assert result.steering_wheel_heat_on is True
+    assert result.front_defrost_on is False
 
 
 def test_telemetry_has_no_removed_fields():
@@ -351,6 +368,12 @@ def test_mapped_keys_excludes_known_unmapped_fields(key):
         "airStatus",
         "airConditioningHairRatings",
         "airConditioningSetTemperature",
+        "driverSeatHeatStatus",
+        "passengerSeatHeatStatus",
+        "driverSeatAirStatus",
+        "passengerSeatAirStatus",
+        "steeringWheelHeating",
+        "frontDefrostStatus",
     ],
 )
 def test_mapped_keys_contains_newly_mapped_fields(key):

@@ -20,9 +20,13 @@ from .const import (
     CA_BASE_URL,
     CONTROL_AIR_CONDITIONER,
     CONTROL_CONDITION_INQUIRY,
+    CONTROL_DEFROST,
     CONTROL_FLASHING_HONKING,
     CONTROL_GET_SERIAL_NO,
     CONTROL_RESULT,
+    CONTROL_SEATS_HEAT,
+    CONTROL_SEATS_WIND,
+    CONTROL_STEERING_WHEEL_HEAT,
     DEFAULT_APP_VERSION,
     DEFAULT_LANGUAGE,
     REQUEST_TIMEOUT,
@@ -426,3 +430,118 @@ class DeepalApiClient:
             {"vehicleId": vehicle_id, "commandId": command_id},
         )
         return data if isinstance(data, dict) else {}
+
+    @staticmethod
+    def _seat_payload(
+        command: str,
+        *,
+        master_switch: int | None,
+        master_level: int | None,
+        copilot_switch: int | None,
+        copilot_level: int | None,
+    ) -> dict[str, Any]:
+        """Build a seat heat/vent command payload.
+
+        Confirmed by reading ha-deepal-alternative's own code
+        (tested by them against a real vehicle): turning a seat off
+        must send switch: 0 *without* a level field — sending an
+        explicit level of 0 is rejected by the server
+        (COMMON_1_1_01_005). So a falsy level is omitted entirely
+        here, the same way a None switch/level already is.
+        """
+        payload: dict[str, Any] = {"command": command}
+
+        if master_switch is not None:
+            payload["masterSwitch"] = master_switch
+        if master_level:
+            payload["masterLevel"] = master_level
+        if copilot_switch is not None:
+            payload["copilotSwitch"] = copilot_switch
+        if copilot_level:
+            payload["copilotLevel"] = copilot_level
+
+        return payload
+
+    async def control_seats_heat(
+        self,
+        vehicle_id: str,
+        *,
+        master_switch: int | None = None,
+        master_level: int | None = None,
+        copilot_switch: int | None = None,
+        copilot_level: int | None = None,
+    ) -> str:
+        """Set the driver ("master") / passenger ("copilot") seat heat level.
+
+        Only pass the switch+level for the seat(s) being changed;
+        leave the other pair as None. A level of 0 (or None) turns
+        that seat's heating off — see _seat_payload for why it must
+        be omitted from the payload, not sent as 0.
+        """
+        return await self._signed_command(
+            CONTROL_SEATS_HEAT,
+            vehicle_id,
+            self._seat_payload(
+                "seats_heat",
+                master_switch=master_switch,
+                master_level=master_level,
+                copilot_switch=copilot_switch,
+                copilot_level=copilot_level,
+            ),
+        )
+
+    async def control_seats_wind(
+        self,
+        vehicle_id: str,
+        *,
+        master_switch: int | None = None,
+        master_level: int | None = None,
+        copilot_switch: int | None = None,
+        copilot_level: int | None = None,
+    ) -> str:
+        """Set the driver ("master") / passenger ("copilot") seat vent level.
+
+        Same rules as control_seats_heat: only pass the pair being
+        changed, and a level of 0/None turns that seat's ventilation
+        off.
+        """
+        return await self._signed_command(
+            CONTROL_SEATS_WIND,
+            vehicle_id,
+            self._seat_payload(
+                "seats_wind",
+                master_switch=master_switch,
+                master_level=master_level,
+                copilot_switch=copilot_switch,
+                copilot_level=copilot_level,
+            ),
+        )
+
+    async def control_steering_wheel_heat(
+        self,
+        vehicle_id: str,
+        enabled: bool,
+    ) -> str:
+        """Turn the steering wheel heating on or off."""
+        return await self._signed_command(
+            CONTROL_STEERING_WHEEL_HEAT,
+            vehicle_id,
+            {"command": "steering_wheel_heating", "open": enabled},
+        )
+
+    async def control_defrost(
+        self,
+        vehicle_id: str,
+        enabled: bool,
+    ) -> str:
+        """Turn the front defrost on or off.
+
+        ha-deepal-alternative's own client has this exact method but
+        never wires it to a Home Assistant entity — we do, as of
+        v1.3.1b4.
+        """
+        return await self._signed_command(
+            CONTROL_DEFROST,
+            vehicle_id,
+            {"command": "defrost", "enabled": enabled},
+        )

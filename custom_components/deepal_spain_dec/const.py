@@ -53,6 +53,25 @@ CONTROL_RESULT = (
     "/intl-app-gw/intl-app-car-control/api/control/control-result"
 )
 
+# The following four, added in v1.3.1b4, were reverse-engineered by
+# reading ha-deepal-alternative's real client code
+# (deepal_sdk/deepal/intl.py, endpoints.py) rather than cross-checking
+# against captured MQTT payloads like the read-only fields — none of
+# these have been sent to the real vehicle yet, see
+# docs/remote-control.md.
+CONTROL_SEATS_HEAT = (
+    "/intl-app-gw/intl-app-car-control/api/control/seats/heat"
+)
+CONTROL_SEATS_WIND = (
+    "/intl-app-gw/intl-app-car-control/api/control/seats/wind"
+)
+CONTROL_STEERING_WHEEL_HEAT = (
+    "/intl-app-gw/intl-app-car-control/api/control/steering-wheel/heat"
+)
+CONTROL_DEFROST = (
+    "/intl-app-gw/intl-app-car-control/api/control/defrost"
+)
+
 # control_flashing_honking() action types.
 FLASH_HONK_OFF = 0
 FLASH_HONK_FLASH = 1
@@ -129,4 +148,6 @@ PLATFORMS = [
     "button",
     "image",
     "climate",
+    "number",
+    "switch",
 ]

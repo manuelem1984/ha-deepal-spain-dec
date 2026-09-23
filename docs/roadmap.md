@@ -13,18 +13,20 @@ la siguiente versión estable.
 - [x] Añadir un botón "luces + claxon a la vez" (`FLASH_HONK_FLASH_BEE`,
       `type=3`) (v1.3.1b3) — ⚠️ **pendiente de probar contra el vehículo
       real** (pendiente para la tarde)
-- [ ] **Investigado, pendiente de implementar** — 4 comandos más sin PIN de
-      control, confirmados leyendo el código real de `ha-deepal-alternative`
-      (`deepal_sdk/deepal/intl.py` y `endpoints.py`):
+- [x] **Implementado** — 4 comandos más sin PIN de control (6 entidades:
+      2 `number` de calefacción + 2 `number` de ventilación + 2 `switch`),
+      confirmados leyendo el código real de `ha-deepal-alternative`
+      (`deepal_sdk/deepal/intl.py` y `endpoints.py`) (v1.3.1b4) —
+      ⚠️ **pendiente de probar contra el vehículo real**:
 
-      | Comando | Endpoint | Payload | Entidad HA propuesta |
+      | Comando | Endpoint | Payload | Entidad HA |
       | --- | --- | --- | --- |
-      | Calefacción asiento conductor (nivel 0-3) | `control/seats/heat` | `masterSwitch`/`masterLevel` | `number` |
-      | Calefacción asiento pasajero (nivel 0-3) | `control/seats/heat` | `copilotSwitch`/`copilotLevel` | `number` |
-      | Ventilación asiento conductor (nivel 0-3) | `control/seats/wind` | `masterSwitch`/`masterLevel` | `number` |
-      | Ventilación asiento pasajero (nivel 0-3) | `control/seats/wind` | `copilotSwitch`/`copilotLevel` | `number` |
-      | Volante calefactado (on/off) | `control/steering-wheel/heat` | `{"open": true/false}` | `switch` |
-      | Desempañado delantero (on/off) | `control/defrost` | `{"enabled": true/false}` | `switch` |
+      | Calefacción asiento conductor (nivel 0-3) | `control/seats/heat` | `masterSwitch`/`masterLevel` | `number.calefaccion_asiento_conductor` |
+      | Calefacción asiento pasajero (nivel 0-3) | `control/seats/heat` | `copilotSwitch`/`copilotLevel` | `number.calefaccion_asiento_acompanante` |
+      | Ventilación asiento conductor (nivel 0-3) | `control/seats/wind` | `masterSwitch`/`masterLevel` | `number.ventilacion_asiento_conductor` |
+      | Ventilación asiento pasajero (nivel 0-3) | `control/seats/wind` | `copilotSwitch`/`copilotLevel` | `number.ventilacion_asiento_acompanante` |
+      | Volante calefactado (on/off) | `control/steering-wheel/heat` | `{"open": true/false}` | `switch.volante_calefactado` |
+      | Desempañado delantero (on/off) | `control/defrost` | `{"enabled": true/false}` | `switch.desempanado_delantero` |
 
       Detalle importante confirmado en su código (probado por ellos contra
       el coche real): para **apagar** un asiento hay que mandar
@@ -32,13 +34,19 @@ la siguiente versión estable.
       `0` explícito, el servidor lo rechaza. Ninguno de los 6 necesita PIN
       (`require_rc_token=False` en su cliente). El desempañado
       (`control_defrost`) existe en su SDK pero **ellos nunca lo conectaron
-      a ninguna entidad** — seríamos los primeros en exponerlo de verdad.
-- [ ] Arreglar el error al enviar varias acciones de control seguidas
-      (sustituir la bandera manual de "comando en curso" por un
-      `asyncio.Lock()`, para que la segunda acción espere en cola en vez de
-      fallar con un error visible; limitar la cola solo a los comandos que
-      de verdad comparten estado — por ahora, climatización — dejando
-      luces/claxon libres de solapamiento real)
+      a ninguna entidad** — somos los primeros en exponerlo de verdad. Se
+      ha añadido también la lectura por telemetría de estos 6 campos
+      (antes solo eran candidatas sin mapear), con la misma escala (0-6 en
+      bruto ÷ 2 = nivel 0-3) usada por `ha-deepal-alternative` para su
+      propio análisis MQTT — cross-referenciada, no confirmada todavía con
+      este vehículo.
+- [x] Arreglar el error al enviar varias acciones de control seguidas —
+      sustituida la bandera manual de "comando en curso" por un
+      `asyncio.Lock()` con timeout de 30s (v1.3.1b4). Solo los comandos que
+      comparten estado (los que usan `optimistic_update`: climatización,
+      asientos, volante, desempañado) esperan en cola; luces/claxon/luces+
+      claxon nunca esperan a nada. ⚠️ **Pendiente de probar contra el
+      vehículo real** — verificado hasta ahora solo con simulaciones.
 - [ ] Confirmar `windMode` y `runTime` del comando de climatización (siguen
       fijos a valores por defecto, sin investigar qué otros valores acepta
       cada uno)

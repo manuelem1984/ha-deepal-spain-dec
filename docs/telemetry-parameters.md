@@ -6,12 +6,12 @@ control remoto (escribir en el coche, no leerlo), ver
 [`remote-control.md`](remote-control.md).
 
 - **Vehículo de referencia:** Deepal S05 (VIN `LS6CME0P6TK106840`)
-- **Última actualización:** 2026-09-2x (v1.2.1b10: retirados kilometraje de
-  ayer/encendido y temperatura por neumático — confirmado que el S05 no los
-  reporta, tras comparar a fondo con `ha-deepal-alternative`)
+- **Última actualización:** 2026-09-2x (v1.3.1b4: añadidos control y lectura
+  de calefacción/ventilación de asientos, volante calefactado y desempañado
+  delantero — sin confirmar todavía contra este vehículo)
 - **Claves recibidas en la primera captura:** 113
-- **Mapeadas a entidades:** 37
-- **Sin mapear / descartadas deliberadamente:** 76
+- **Mapeadas a entidades:** 43
+- **Sin mapear / descartadas deliberadamente:** 70
 
 ## Cómo capturar valores
 
@@ -68,6 +68,10 @@ Claves ya mapeadas en `telemetry.py`. No requieren acción.
 | `airStatus` | Climatizador - Estado | ✅ Confirmado 2026-09-18: `1` = encendido, `0` = apagado. Renombrada en v1.2.1b7 (antes "Aire acondicionado encendido") |
 | `airConditioningHairRatings` | Climatizador - Ventilador | ✅ Confirmado 2026-09-18: nivel entero (visto `2`). Rango completo (máximo) aún sin confirmar. Renombrada en v1.2.1b7 (antes "Velocidad del ventilador") |
 | `airConditioningSetTemperature` | Climatizador - Temperatura | ✅ Confirmado 2026-09-18: grados directos (`22.5` = 22,5 °C), sin escalar. Renombrada en v1.2.1b7 (antes "Consigna de temperatura"). **Ojo:** el comando de escritura (`control_air_conditioner`, ver `remote-control.md`) espera el valor en décimas de grado — formato distinto al de lectura, sin confirmar todavía |
+| `driverSeatHeatStatus` / `passengerSeatHeatStatus` | Calefacción asiento conductor/acompañante | ⚠️ v1.3.1b4: lectura + escritura implementadas. Escala (0-6 en bruto ÷ 2 = nivel 0-3) y nombre de campo **cruzados con `ha-deepal-alternative`, no confirmados todavía con este vehículo** — ver `remote-control.md` |
+| `driverSeatAirStatus` / `passengerSeatAirStatus` | Ventilación asiento conductor/acompañante | ⚠️ v1.3.1b4: misma nota que la fila anterior |
+| `steeringWheelHeating` | Volante calefactado | ⚠️ v1.3.1b4: lectura + escritura implementadas (interruptor on/off). Sin confirmar contra este vehículo |
+| `frontDefrostStatus` | Desempañado delantero | ⚠️ v1.3.1b4: lectura + escritura implementadas (interruptor on/off). Sin confirmar contra este vehículo |
 | `leftAnteriorWindowDegree` / `rightAnteriorWindowDegree` / `leftRearWindowDegree` / `rightRearWindowDegree` | ~~% de apertura de cada ventana~~ | ❌ Retirada en v1.2.0: confirmado el 2026-09-18 que **no** es la posición de la ventana, sino su **aceleración de movimiento** — el valor solo cambia mientras el cristal se está moviendo y vuelve a `0` en cuanto se detiene (aunque quede abierto). No sirve para saber si una ventana está abierta o cerrada, así que no se expone como entidad. Explica además un valor `12` visto repetidamente junto a la puerta abierta: el S05 no tiene marco en las ventanillas y las baja solo unos milímetros al abrir la puerta (para no rozar la junta), lo que activa brevemente este campo de aceleración sin que nadie tocara la ventana |
 
 ## 2. Buscadas pero nunca recibidas (retiradas)
@@ -105,18 +109,11 @@ Recibidas pero sin mapear. Ordenadas por utilidad práctica.
 | Clave | Hipótesis | Apagado | Encendido | Estado |
 | --- | --- | --- | --- | --- |
 | `airRecycleStatus` | Recirculación de aire | | | ? |
-| `frontDefrostStatus` | Desempañado delantero | | | ? |
 | `airPurifierStatus` | Purificador de aire | | | ? |
 
 ### 3.3 Asientos y volante
 
-| Clave | Hipótesis | Apagado | Encendido | Estado |
-| --- | --- | --- | --- | --- |
-| `driverSeatHeatStatus` | Calefacción asiento conductor | | | ? Confirmar si es 0-3 |
-| `passengerSeatHeatStatus` | Calefacción asiento pasajero | | | ? |
-| `driverSeatAirStatus` | Ventilación asiento conductor | | | ? |
-| `passengerSeatAirStatus` | Ventilación asiento pasajero | | | ? |
-| `steeringWheelHeating` | Volante calefactado | | | ? |
+_(vacío — todo lo que había aquí se movió a la sección 1, ver más arriba)_
 
 ### 3.4 Apertura y carrocería
 

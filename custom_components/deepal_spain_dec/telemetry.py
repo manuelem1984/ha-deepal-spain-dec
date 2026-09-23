@@ -61,6 +61,12 @@ MAPPED_KEYS: frozenset[str] = frozenset(
         "airStatus",
         "airConditioningHairRatings",
         "airConditioningSetTemperature",
+        "driverSeatHeatStatus",
+        "passengerSeatHeatStatus",
+        "driverSeatAirStatus",
+        "passengerSeatAirStatus",
+        "steeringWheelHeating",
+        "frontDefrostStatus",
     }
 )
 
@@ -95,6 +101,23 @@ def as_bool(value: Any) -> bool | None:
         return None
 
     return parsed_value != 0
+
+
+def as_seat_level(value: Any) -> int | None:
+    """Convert a raw 0-6 seat heat/vent value to a 0-3 level.
+
+    Deepal's own API reports these in a 0-6 "gear" scale; the level
+    shown in the app (and here) is that value divided by two. Scale
+    confirmed by reading ha-deepal-alternative's own MQTT parsing for
+    this vehicle class (mqtt.py's _seat_heat_level helper), not yet
+    confirmed against this specific vehicle.
+    """
+    parsed_value = as_int(value)
+
+    if parsed_value is None:
+        return None
+
+    return parsed_value // 2
 
 
 def first_value(
@@ -261,5 +284,23 @@ def parameters_to_telemetry(
         ),
         climate_target_temperature_c=as_float(
             parameters.get("airConditioningSetTemperature")
+        ),
+        driver_seat_heat_level=as_seat_level(
+            parameters.get("driverSeatHeatStatus")
+        ),
+        passenger_seat_heat_level=as_seat_level(
+            parameters.get("passengerSeatHeatStatus")
+        ),
+        driver_seat_vent_level=as_seat_level(
+            parameters.get("driverSeatAirStatus")
+        ),
+        passenger_seat_vent_level=as_seat_level(
+            parameters.get("passengerSeatAirStatus")
+        ),
+        steering_wheel_heat_on=as_bool(
+            parameters.get("steeringWheelHeating")
+        ),
+        front_defrost_on=as_bool(
+            parameters.get("frontDefrostStatus")
         ),
     )

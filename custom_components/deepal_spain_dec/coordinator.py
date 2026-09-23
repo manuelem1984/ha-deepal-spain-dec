@@ -47,6 +47,13 @@ DEFAULT_UPDATE_INTERVAL = timedelta(minutes=5)
 _COMMAND_RESULT_TIMEOUT = 15.0
 _COMMAND_RESULT_INTERVAL = 1.0
 
+# How long a command that shares state (optimistic_update) will wait
+# for the lock before giving up — a single command can already take
+# up to _COMMAND_RESULT_TIMEOUT plus a few retries, so a queued second
+# one needs real headroom, but not forever in case something is
+# genuinely stuck.
+_COMMAND_LOCK_TIMEOUT = 30.0
+
 # resultCode -> status, exactly as classified by ha-deepal-alternative
 # (custom_components/deepal/deepal/models/command.py), confirmed by
 # reading its source directly. Any code not listed here is treated as
@@ -116,11 +123,14 @@ class DeepalSpainCoordinator(
         # instead of rebuilding it on the event loop on every poll.
         self._ssl_context: ssl.SSLContext | None = None
 
-        # Guards against sending a second remote command while one is
-        # still being confirmed — pressing two buttons quickly would
-        # otherwise race two signed commands (and their optimistic
-        # updates) against each other.
-        self._command_in_progress = False
+        # Guards against two commands that both mutate self.data (via
+        # optimistic_update) racing each other — e.g. two climate
+        # calls, or a climate call and a seat-heat call, fired close
+        # together. A plain fire-and-forget command with no
+        # optimistic_update (lights, horn) never touches this lock at
+        # all, so it can always run immediately regardless of what
+        # else is in flight.
+        self._command_lock = asyncio.Lock()
 
     async def _async_update_data(
         self,
@@ -254,10 +264,13 @@ class DeepalSpainCoordinator(
         awaited once, and this may need to call it a second time after
         a silent session refresh (see _send_command_with_session_retry).
 
-        Only one command runs at a time per vehicle: a second call
-        while one is still being confirmed raises immediately instead
-        of racing two signed commands (and their optimistic updates)
-        against each other.
+        Commands that pass optimistic_update share state (they mutate
+        self.data) and queue behind each other via a lock, waiting up
+        to _COMMAND_LOCK_TIMEOUT seconds their turn instead of racing
+        — e.g. two climate calls, or a climate call and a seat-heat
+        call, fired close together. A command with no optimistic_update
+        (lights, horn) touches nothing shared, so it always runs
+        immediately regardless of what else is in flight.
 
         After Deepal's servers accept the command (returning a
         commandId), this polls control/control-result briefly to
@@ -280,71 +293,100 @@ class DeepalSpainCoordinator(
         approach (still no rollback if the command silently no-ops
         server-side despite being accepted).
         """
-        if self._command_in_progress:
+        if optimistic_update is None:
+            await self._async_send_command_locked(
+                command_factory,
+                optimistic_update=None,
+                refresh_after=refresh_after,
+                max_retries=max_retries,
+                retry_delay=retry_delay,
+            )
+            return
+
+        try:
+            async with asyncio.timeout(_COMMAND_LOCK_TIMEOUT):
+                async with self._command_lock:
+                    await self._async_send_command_locked(
+                        command_factory,
+                        optimistic_update=optimistic_update,
+                        refresh_after=refresh_after,
+                        max_retries=max_retries,
+                        retry_delay=retry_delay,
+                    )
+        except TimeoutError as error:
             raise HomeAssistantError(
-                "Ya hay un comando de Deepal en curso; espera a que "
-                "termine antes de enviar otro."
+                "Hay otro comando de Deepal en curso desde hace "
+                "demasiado tiempo; inténtalo de nuevo en unos "
+                "segundos."
+            ) from error
+
+    async def _async_send_command_locked(
+        self,
+        command_factory: Callable[[], Coroutine[Any, Any, str]],
+        *,
+        optimistic_update: dict[str, Any] | None,
+        refresh_after: bool,
+        max_retries: int,
+        retry_delay: float,
+    ) -> None:
+        """Do the actual work of async_send_command.
+
+        Split out so async_send_command can decide, before running
+        any of this, whether it needs the lock at all.
+        """
+        try:
+            command_id = await self._send_command_with_session_retry(
+                command_factory
+            )
+        except DeepalAuthError as error:
+            raise HomeAssistantError(
+                "La sesión de Deepal ha caducado y no se ha "
+                "podido renovar sola; reautentica la integración: "
+                f"{error}"
+            ) from error
+        except DeepalApiError as error:
+            raise HomeAssistantError(
+                f"El comando de Deepal ha fallado: {error}"
+            ) from error
+
+        await self._async_confirm_command_accepted(command_id)
+
+        if optimistic_update and self.data is not None:
+            self.async_set_updated_data(
+                dataclasses.replace(
+                    self.data,
+                    **optimistic_update,
+                )
             )
 
-        self._command_in_progress = True
+        if not refresh_after:
+            return
+
         try:
-            try:
-                command_id = (
-                    await self._send_command_with_session_retry(
-                        command_factory
-                    )
-                )
-            except DeepalAuthError as error:
-                raise HomeAssistantError(
-                    "La sesión de Deepal ha caducado y no se ha "
-                    "podido renovar sola; reautentica la integración: "
-                    f"{error}"
-                ) from error
-            except DeepalApiError as error:
-                raise HomeAssistantError(
-                    f"El comando de Deepal ha fallado: {error}"
-                ) from error
+            await self.api.control_condition_inquiry(
+                self.vehicle.vehicle_id
+            )
+        except DeepalApiError:
+            # Best-effort nudge only; the regular poll cycle will
+            # catch up regardless.
+            pass
 
-            await self._async_confirm_command_accepted(command_id)
+        for attempt in range(max_retries):
+            await self.async_request_refresh()
 
-            if optimistic_update and self.data is not None:
-                self.async_set_updated_data(
-                    dataclasses.replace(
-                        self.data,
-                        **optimistic_update,
-                    )
-                )
-
-            if not refresh_after:
+            if not optimistic_update:
                 return
 
-            try:
-                await self.api.control_condition_inquiry(
-                    self.vehicle.vehicle_id
-                )
-            except DeepalApiError:
-                # Best-effort nudge only; the regular poll cycle will
-                # catch up regardless.
-                pass
+            confirmed = self.data is not None and all(
+                getattr(self.data, field) == value
+                for field, value in optimistic_update.items()
+            )
 
-            for attempt in range(max_retries):
-                await self.async_request_refresh()
+            if confirmed:
+                return
 
-                if not optimistic_update:
-                    return
-
-                confirmed = self.data is not None and all(
-                    getattr(self.data, field) == value
-                    for field, value in optimistic_update.items()
-                )
-
-                if confirmed:
-                    return
-
-                if attempt < max_retries - 1:
-                    await asyncio.sleep(retry_delay)
-        finally:
-            self._command_in_progress = False
+            if attempt < max_retries - 1:
+                await asyncio.sleep(retry_delay)
 
     async def _async_confirm_command_accepted(
         self,
