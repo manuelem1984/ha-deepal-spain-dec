@@ -13,7 +13,12 @@ from homeassistant.helpers.entity_platform import (
 )
 
 from .api_errors import DeepalApiError
-from .const import DOMAIN, FLASH_HONK_BEE, FLASH_HONK_FLASH
+from .const import (
+    DOMAIN,
+    FLASH_HONK_BEE,
+    FLASH_HONK_FLASH,
+    FLASH_HONK_FLASH_BEE,
+)
 from .coordinator import DeepalSpainCoordinator
 from .entity import DeepalSpainEntity
 
@@ -37,6 +42,13 @@ HONK_HORN_BUTTON_DESCRIPTION = ButtonEntityDescription(
     translation_key="honk_horn",
     name="Tocar el claxon",
     icon="mdi:bullhorn",
+)
+
+FLASH_AND_HONK_BUTTON_DESCRIPTION = ButtonEntityDescription(
+    key="flash_and_honk",
+    translation_key="flash_and_honk",
+    name="Luces y claxon a la vez",
+    icon="mdi:alarm-light",
 )
 
 
@@ -63,6 +75,10 @@ async def async_setup_entry(
             DeepalSpainHonkHornButton(
                 coordinator,
                 HONK_HORN_BUTTON_DESCRIPTION,
+            ),
+            DeepalSpainFlashAndHonkButton(
+                coordinator,
+                FLASH_AND_HONK_BUTTON_DESCRIPTION,
             ),
         ]
     )
@@ -170,6 +186,38 @@ class DeepalSpainHonkHornButton(
             lambda: self.coordinator.api.control_flashing_honking(
                 self.coordinator.vehicle.vehicle_id,
                 FLASH_HONK_BEE,
+            ),
+            refresh_after=False,
+        )
+
+
+class DeepalSpainFlashAndHonkButton(
+    DeepalSpainEntity,
+    ButtonEntity,
+):
+    """Button used to flash the lights and sound the horn together."""
+
+    entity_description: ButtonEntityDescription
+
+    def __init__(
+        self,
+        coordinator: DeepalSpainCoordinator,
+        description: ButtonEntityDescription,
+    ) -> None:
+        """Initialize the flash-and-honk button."""
+        super().__init__(
+            coordinator,
+            description.key,
+        )
+
+        self.entity_description = description
+
+    async def async_press(self) -> None:
+        """Flash the vehicle's lights and sound its horn together."""
+        await self.coordinator.async_send_command(
+            lambda: self.coordinator.api.control_flashing_honking(
+                self.coordinator.vehicle.vehicle_id,
+                FLASH_HONK_FLASH_BEE,
             ),
             refresh_after=False,
         )

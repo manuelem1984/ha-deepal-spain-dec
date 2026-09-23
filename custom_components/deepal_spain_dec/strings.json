@@ -54,5 +54,17 @@
         }
       }
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Versión y color del vehículo",
+        "description": "Elige la versión y el color de tu Deepal S05 para mostrar la foto exacta en vez de una genérica. Ambos son opcionales.",
+        "data": {
+          "vehicle_trim": "Versión",
+          "vehicle_color": "Color"
+        }
+      }
+    }
   }
 }

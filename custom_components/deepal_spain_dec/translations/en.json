@@ -54,5 +54,17 @@
         }
       }
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Vehicle trim and color",
+        "description": "Choose your Deepal S05's trim and color to show the exact matching photo instead of a generic one. Both are optional.",
+        "data": {
+          "vehicle_trim": "Trim",
+          "vehicle_color": "Color"
+        }
+      }
+    }
   }
 }
