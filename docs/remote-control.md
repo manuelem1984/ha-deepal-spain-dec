@@ -158,6 +158,7 @@ eso solo hace falta para puertas, ventanas y maletero.
 | Tocar el claxon | `button.tocar_el_claxon` | `control/flashing-honking` (`type=2`) | No | ✅ Confirmado funcionando (2026-09-2x), tras el arreglo de renovación de sesión en v1.2.1b8 |
 | Encender/apagar climatización + temperatura de consigna | `climate.climatizacion` | `control/air-conditioner` | No | ✅ Confirmado funcionando (2026-09-2x), comparado contra la app oficial Changan. El fallo inicial (`APP_1_1_02_004`) era sesión caducada, arreglado en v1.2.1b8 |
 | Avisar al coche para que reporte datos frescos | (usado internamente tras cada comando, y por el botón "Actualizar datos del vehículo") | `control/condition-inquiry` | No | ✅ Confirmado funcionando (es lo que arregla el token caducado al pulsar "Actualizar") |
+| Luces y claxon a la vez | `button.luces_y_claxon_a_la_vez` | `control/flashing-honking` (`type=3`) | No | ⚠️ Sin probar contra el vehículo real (añadido en v1.3.1b3) |
 
 ### Detalles pendientes de confirmar
 

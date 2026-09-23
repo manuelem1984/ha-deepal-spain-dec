@@ -8,9 +8,11 @@ la siguiente versión estable.
       (v1.3.1b2: 10 fotos, Pro/Max/Max AWD × 5 colores oficiales)
 - [x] Arreglar las etiquetas del formulario de Opciones, que mostraban las
       claves internas (`vehicle_trim`, `vehicle_color`) en vez de "Versión"
-      y "Color" — faltaban las traducciones (v1.3.1b3)
+      y "Color" — faltaban las traducciones (v1.3.1b3) — ✅ **verificado
+      en real**: el menú ya sale traducido correctamente
 - [x] Añadir un botón "luces + claxon a la vez" (`FLASH_HONK_FLASH_BEE`,
-      `type=3`) (v1.3.1b3)
+      `type=3`) (v1.3.1b3) — ⚠️ **pendiente de probar contra el vehículo
+      real** (pendiente para la tarde)
 - [ ] **Investigado, pendiente de implementar** — 4 comandos más sin PIN de
       control, confirmados leyendo el código real de `ha-deepal-alternative`
       (`deepal_sdk/deepal/intl.py` y `endpoints.py`):
