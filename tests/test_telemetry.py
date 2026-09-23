@@ -348,9 +348,12 @@ def test_mapped_keys_contains_known_mapped_fields(key):
     "key",
     [
         "skyWindowDegree",
-        "driverSeatHeatStatus",
         "chargeCoverStatus",
-        "steeringWheelHeating",
+        # driverSeatHeatStatus and steeringWheelHeating used to be here
+        # too, until v1.3.1b4 mapped them for real (this test caught
+        # exactly the contradiction its own comment warns about).
+        "airRecycleStatus",
+        "airPurifierStatus",
     ],
 )
 def test_mapped_keys_excludes_known_unmapped_fields(key):
