@@ -37,6 +37,7 @@ from .mqtt import (
     DeepalMqttClient,
     parse_connection_config,
 )
+from .telemetry import parse_condition_overlay
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -215,7 +216,46 @@ class DeepalSpainCoordinator(
 
         telemetry = await mqtt_client.fetch_telemetry()
         self.last_raw_parameters = mqtt_client.last_raw_parameters
+        telemetry = await self._async_overlay_condition(telemetry)
         return telemetry
+
+    async def _async_overlay_condition(
+        self,
+        telemetry: DeepalTelemetry,
+    ) -> DeepalTelemetry:
+        """Replace a handful of MQTT-unreliable fields with a better source.
+
+        Seat heat/vent level and steering wheel heat/front defrost
+        on-off were confirmed (comparing two real diagnostics dumps a
+        few minutes apart, with the actual state changed and
+        confirmed via the official app in between) to not reliably
+        follow the vehicle's real state over MQTT. This calls a
+        separate, richer on-demand endpoint for just those fields and
+        overlays them — see docs/remote-control.md.
+
+        Best-effort: any failure here just leaves the MQTT-derived
+        (already known unreliable) values from `telemetry` as they
+        were, rather than breaking the whole poll over it.
+        """
+        try:
+            raw = await self.api.get_condition_overlay(
+                self.vehicle.vehicle_id
+            )
+        except DeepalApiError as error:
+            _LOGGER.debug(
+                "Deepal condition overlay failed for %s, keeping "
+                "MQTT-derived values for the affected fields: %s",
+                self.vehicle.vehicle_id,
+                error,
+            )
+            return telemetry
+
+        overlay_fields = parse_condition_overlay(raw)
+
+        if not overlay_fields:
+            return telemetry
+
+        return dataclasses.replace(telemetry, **overlay_fields)
 
     async def _refresh_session(self) -> None:
         """Silently renew the session using the stored refresh token.
@@ -251,6 +291,7 @@ class DeepalSpainCoordinator(
         command_factory: Callable[[], Coroutine[Any, Any, str]],
         *,
         optimistic_update: dict[str, Any] | None = None,
+        serialize: bool | None = None,
         refresh_after: bool = True,
         max_retries: int = 3,
         retry_delay: float = 2.0,
@@ -264,13 +305,20 @@ class DeepalSpainCoordinator(
         awaited once, and this may need to call it a second time after
         a silent session refresh (see _send_command_with_session_retry).
 
-        Commands that pass optimistic_update share state (they mutate
-        self.data) and queue behind each other via a lock, waiting up
-        to _COMMAND_LOCK_TIMEOUT seconds their turn instead of racing
-        — e.g. two climate calls, or a climate call and a seat-heat
-        call, fired close together. A command with no optimistic_update
-        (lights, horn) touches nothing shared, so it always runs
-        immediately regardless of what else is in flight.
+        Commands that queue behind each other via a lock (waiting up
+        to _COMMAND_LOCK_TIMEOUT seconds their turn instead of racing)
+        are the ones that either mutate self.data (optimistic_update
+        given) or explicitly ask to serialize — e.g. two climate
+        calls, or a seat-heat call and a seat-vent call on the same
+        seat, since the real vehicle can't have both on at once. A
+        command with neither (lights, horn) touches nothing shared,
+        so it always runs immediately regardless of what else is in
+        flight. serialize=None (the default) means "only if
+        optimistic_update is given" — pass it explicitly (e.g.
+        serialize=True with optimistic_update=None) for a command
+        that shares real vehicle state without also updating
+        self.data, such as an assumed-state entity that doesn't trust
+        the vehicle's own reported status for that feature.
 
         After Deepal's servers accept the command (returning a
         commandId), this polls control/control-result briefly to
@@ -293,10 +341,13 @@ class DeepalSpainCoordinator(
         approach (still no rollback if the command silently no-ops
         server-side despite being accepted).
         """
-        if optimistic_update is None:
+        if serialize is None:
+            serialize = optimistic_update is not None
+
+        if not serialize:
             await self._async_send_command_locked(
                 command_factory,
-                optimistic_update=None,
+                optimistic_update=optimistic_update,
                 refresh_after=refresh_after,
                 max_retries=max_retries,
                 retry_delay=retry_delay,

@@ -285,6 +285,13 @@ def parameters_to_telemetry(
         climate_target_temperature_c=as_float(
             parameters.get("airConditioningSetTemperature")
         ),
+        # Fallback only — confirmed unreliable for these four over
+        # MQTT (comparing two real captures a few minutes apart, with
+        # the vehicle's actual state changed and confirmed via the
+        # official app in between, these MQTT fields did not follow).
+        # coordinator._async_overlay_condition() replaces them with a
+        # more reliable source when that call succeeds; this MQTT
+        # value is only what remains if it doesn't.
         driver_seat_heat_level=as_seat_level(
             parameters.get("driverSeatHeatStatus")
         ),
@@ -304,3 +311,73 @@ def parameters_to_telemetry(
             parameters.get("frontDefrostStatus")
         ),
     )
+
+
+def parse_condition_overlay(raw: dict[str, Any]) -> dict[str, Any]:
+    """Extract the handful of fields this integration overlays.
+
+    Takes the response of api.get_condition_overlay() — nested by
+    category (e.g. raw["seat"]["leftFront"]["heatStatus"]), a totally
+    different shape from the flat MQTT payload parameters_to_telemetry()
+    reads. Returns a {field_name: value} dict suitable for
+    dataclasses.replace(telemetry, **result) — only the keys that
+    could actually be parsed, so a partial or malformed response
+    overlays only what it safely can rather than clearing fields with
+    None.
+
+    Field names and the fact that this endpoint is reliable where the
+    equivalent MQTT fields are not were cross-checked against another
+    open-source Deepal integration; not yet confirmed end-to-end
+    against this vehicle (see docs/remote-control.md).
+    """
+    seat = raw.get("seat")
+    seat = seat if isinstance(seat, dict) else {}
+
+    hvac = raw.get("hvac")
+    hvac = hvac if isinstance(hvac, dict) else {}
+
+    vehicle_status = raw.get("vehicleStatus")
+    vehicle_status = (
+        vehicle_status if isinstance(vehicle_status, dict) else {}
+    )
+
+    def _seat_field(position: str, *keys: str) -> int | None:
+        data = seat.get(position)
+
+        if not isinstance(data, dict):
+            return None
+
+        for key in keys:
+            level = as_int(data.get(key))
+            if level is not None:
+                return level if level > 0 else 0
+
+        return None
+
+    result: dict[str, Any] = {}
+
+    driver_heat = _seat_field("leftFront", "heatStatus", "level")
+    if driver_heat is not None:
+        result["driver_seat_heat_level"] = driver_heat
+
+    passenger_heat = _seat_field("rightFront", "heatStatus", "level")
+    if passenger_heat is not None:
+        result["passenger_seat_heat_level"] = passenger_heat
+
+    driver_vent = _seat_field("leftFront", "ventStatus")
+    if driver_vent is not None:
+        result["driver_seat_vent_level"] = driver_vent
+
+    passenger_vent = _seat_field("rightFront", "ventStatus")
+    if passenger_vent is not None:
+        result["passenger_seat_vent_level"] = passenger_vent
+
+    steering_heater = as_int(vehicle_status.get("steeringWheelHeater"))
+    if steering_heater is not None:
+        result["steering_wheel_heat_on"] = steering_heater != 0
+
+    defrost = as_int(hvac.get("defrostStatus"))
+    if defrost is not None:
+        result["front_defrost_on"] = defrost != 0
+
+    return result

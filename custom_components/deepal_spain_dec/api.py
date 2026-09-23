@@ -27,6 +27,7 @@ from .const import (
     CONTROL_SEATS_HEAT,
     CONTROL_SEATS_WIND,
     CONTROL_STEERING_WHEEL_HEAT,
+    CONDITION_OVERLAY,
     DEFAULT_APP_VERSION,
     DEFAULT_LANGUAGE,
     REQUEST_TIMEOUT,
@@ -536,12 +537,39 @@ class DeepalApiClient:
     ) -> str:
         """Turn the front defrost on or off.
 
-        ha-deepal-alternative's own client has this exact method but
-        never wires it to a Home Assistant entity — we do, as of
-        v1.3.1b4.
+        Cross-checked against another open-source Deepal integration,
+        whose client has this exact method but never wires it to a
+        Home Assistant entity — we do, as of v1.3.1b4.
         """
         return await self._signed_command(
             CONTROL_DEFROST,
             vehicle_id,
             {"command": "defrost", "enabled": enabled},
         )
+
+    async def get_condition_overlay(
+        self,
+        vehicle_id: str,
+    ) -> dict[str, Any]:
+        """Fetch a richer, on-demand condition snapshot for a few unreliable fields.
+
+        Plain authenticated POST — no serial number, no RSA signature
+        (different gateway from the control_* commands). Requesting
+        only the "seat", "hvac" and "vehicleStatus" categories, the
+        ones this integration actually overlays — see
+        coordinator._async_overlay_condition(). The response is
+        nested by category (e.g. body["seat"]["leftFront"]), unlike
+        the flat MQTT payload.
+        """
+        data = await self.post(
+            CONDITION_OVERLAY,
+            {
+                "vechileCriteria": {  # sic — manufacturer's own typo
+                    "seat": "1",
+                    "hvac": "1",
+                    "vehicleStatus": "1",
+                },
+                "vehicleId": vehicle_id,
+            },
+        )
+        return data if isinstance(data, dict) else {}

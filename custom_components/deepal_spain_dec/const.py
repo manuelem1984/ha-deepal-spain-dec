@@ -72,6 +72,18 @@ CONTROL_DEFROST = (
     "/intl-app-gw/intl-app-car-control/api/control/defrost"
 )
 
+# Different gateway (car-condition, not car-control): a richer,
+# on-demand snapshot of the vehicle used by the official app itself.
+# Confirmed by reading another open-source Deepal integration's code:
+# for the S05, a handful of MQTT fields (seat heat/vent, steering
+# wheel heat, front defrost) are unreliable — sometimes sentinel
+# values, sometimes simply not kept in sync with what the app shows
+# — while this endpoint's equivalent fields are. See
+# coordinator._async_overlay_condition() and docs/remote-control.md.
+CONDITION_OVERLAY = (
+    "/intl-app-gw/intl-app-car-condition/api/vehicle/condition"
+)
+
 # control_flashing_honking() action types.
 FLASH_HONK_OFF = 0
 FLASH_HONK_FLASH = 1

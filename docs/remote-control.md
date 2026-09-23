@@ -7,13 +7,10 @@ contrario: escribir en el coche, no leerlo.
 
 - **Vehículo de referencia:** Deepal S05 (VIN `LS6CME0P6TK106840`)
 - **Origen de esta información:** el protocolo completo (endpoints, cifrado,
-  firma) se reconstruyó comparando con
-  [`ha-deepal-alternative`](https://github.com/Sunek0/ha-deepal-alternative),
-  otro proyecto open-source que ataca el mismo backend (sus
-  `INTL_BASE_URL`/`INTL_CA_BASE_URL` coinciden exactamente con nuestro
-  `BASE_URL`/`CA_BASE_URL`, confirmando que es la misma infraestructura).
-  Luces, claxon y climatización ya están **confirmados funcionando contra el
-  vehículo real** — ver la sección 2.
+  firma) se reconstruyó comparando con otros proyectos open-source que
+  atacan el mismo backend, cuyos endpoints e infraestructura coinciden con
+  los nuestros. Luces, claxon y climatización ya están **confirmados
+  funcionando contra el vehículo real** — ver la sección 2.
 - **Alcance de esta versión:** solo comandos que **no** requieren el PIN de
   control. Puertas, ventanas y maletero quedan para una fase posterior — ver
   la sección 3.
@@ -146,6 +143,64 @@ comando sin `optimistic_update` (claxon) no espera a uno que sí lo tiene
 ejecutan en cola, uno tras otro, nunca a la vez; y que si el lock queda
 retenido más de 30 segundos, se lanza un error claro en vez de esperar para
 siempre.
+
+## 0.4. Lectura fiable de asientos y volante (desde v1.3.1b6)
+
+**Hallazgo real, comparando dos volcados de diagnósticos con unos minutos de
+diferencia**: con el asiento del conductor apagado de verdad (confirmado en
+la app oficial) entre una captura y la otra, el campo MQTT
+`driverSeatAirStatus` seguía marcando el mismo valor que antes de apagarlo.
+No es un problema de escala ni de nombre de campo — **estos 4 campos del
+MQTT no reflejan el estado actual del asiento/volante**, solo parecen guardar
+el último nivel que se configuró alguna vez, encendido o no. Comparando con
+otro proyecto open-source que ataca el mismo backend, confirmamos que ellos
+ya se habían encontrado con esto mismo.
+
+**La solución no es desconfiar del dato y ya está — es pedirlo por otra vía
+que sí es fiable.** Hay un segundo endpoint REST, en una pasarela distinta a
+la de los comandos de control, que da una foto más completa del vehículo
+bajo demanda — el mismo tipo de consulta que hace la app oficial. Su
+respuesta viene organizada por categorías (asientos, clima, estado general),
+con nombres de campo totalmente distintos a los del MQTT:
+
+| Función | Campo MQTT (no fiable) | Campo de este endpoint |
+| --- | --- | --- |
+| Calefacción asiento | `driverSeatHeatStatus` (0-6, hay que dividir entre 2) | `seat.leftFront.heatStatus` (0-3 directo) |
+| Ventilación asiento | `driverSeatAirStatus` | `seat.leftFront.ventStatus` |
+| Volante calefactado | `steeringWheelHeating` | `vehicleStatus.steeringWheelHeater` |
+| Desempañado | `frontDefrostStatus` | `hvac.defrostStatus` |
+
+`coordinator._async_overlay_condition()` pide este endpoint (solo las 3
+categorías que necesitamos: asientos, clima, estado general — no hace falta
+pedir el resto, ya lo tenemos por MQTT) justo después de cada sondeo MQTT
+normal, y **sustituye** estos 6 campos con lo que diga, dejando el resto de
+la telemetría (batería, puertas, etc.) exactamente igual. Si la llamada
+falla por lo que sea, no rompe nada — simplemente se queda con el valor del
+MQTT (ya sabido poco fiable) hasta el siguiente sondeo.
+
+**Limitación conocida, aceptada por ahora**: si acabas de mandar un comando
+de asiento/volante desde Home Assistant, es posible que el sondeo
+inmediatamente posterior (parte del mecanismo de confirmación de la sección
+0) pida este endpoint **antes** de que el coche haya terminado de aplicar el
+cambio, y lo revierta durante unos segundos hasta que el siguiente sondeo lo
+confirme — el mismo tipo de limitación que ya teníamos documentada para la
+actualización optimista en general, no un problema nuevo. No se compara
+ninguna marca de tiempo entre el MQTT y este endpoint todavía (el proyecto
+de referencia sí lo hace); queda anotado en `docs/roadmap.md` como posible
+mejora futura.
+
+**Bonus encontrado de camino**: este mismo endpoint también trae temperatura
+exterior y temperatura por neumático — los dos campos que retiramos porque
+el MQTT nunca los manda (v1.2.0 y v1.2.1b10). No se han vuelto a añadir
+todavía; queda anotado como posible tarea futura.
+
+**Verificado sin coche real**: 13 casos de parseo del JSON anidado de este
+endpoint (respuesta completa, campos individuales, respuesta vacía,
+categorías mal formadas que no deben reventar, niveles negativos tratados
+como 0), y 7 casos más simulando el flujo completo (sustitución correcta de
+los 6 campos sin tocar el resto de la telemetría, sin mutar el objeto
+original, comportamiento cuando la API falla o devuelve una respuesta
+vacía).
 
 ## 1. Cómo funciona el protocolo de comandos
 

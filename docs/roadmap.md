@@ -40,6 +40,28 @@ la siguiente versión estable.
       bruto ÷ 2 = nivel 0-3) usada por `ha-deepal-alternative` para su
       propio análisis MQTT — cross-referenciada, no confirmada todavía con
       este vehículo.
+
+      **Seguimiento (v1.3.1b6)**: probado contra el vehículo real, la
+      *lectura* de estos 4 campos (calefacción/ventilación de asientos,
+      volante calefactado) resultó no ser fiable por MQTT — ver la tarea de
+      abajo. La *escritura* (los comandos de esta tabla) sigue sin
+      confirmar contra el vehículo real.
+- [x] **Arreglada la lectura no fiable de asientos y volante (v1.3.1b6)**:
+      confirmado con dos volcados de diagnósticos reales que el MQTT no
+      refleja el estado actual de calefacción/ventilación de asientos ni del
+      volante calefactado (parece guardar solo "el último nivel
+      configurado", encendido o no). Sustituido por un segundo endpoint
+      REST más fiable — ver "0.4. Lectura fiable de asientos y volante" en
+      `remote-control.md`. Verificado con simulaciones (20 casos en total);
+      pendiente de confirmar contra el vehículo real.
+- [ ] Comparar la marca de tiempo (`lastUpdatedAt`) de este nuevo endpoint
+      de asientos/volante contra la del MQTT, para no sustituir un dato
+      fresco por uno más antiguo — de momento se sustituye siempre que la
+      llamada tenga éxito, sin comparar frescura entre ambas fuentes.
+- [ ] Investigar si ese mismo endpoint (el de asientos/volante) también
+      sirve para recuperar temperatura exterior y temperatura por
+      neumático — los retiramos porque el MQTT nunca los manda, pero este
+      endpoint parece incluirlos también.
 - [x] Arreglar el error al enviar varias acciones de control seguidas —
       sustituida la bandera manual de "comando en curso" por un
       `asyncio.Lock()` con timeout de 30s (v1.3.1b4). Solo los comandos que
