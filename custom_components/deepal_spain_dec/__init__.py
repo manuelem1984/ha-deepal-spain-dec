@@ -25,7 +25,26 @@ from .const import (
     PLATFORMS,
 )
 from .coordinator import DeepalSpainCoordinator
+from . import dashboard
 from .models import DeepalSession, DeepalVehicle
+
+
+async def async_setup(
+    hass: HomeAssistant,
+    config: dict,
+) -> bool:
+    """Set up the Deepal Spain DEC integration (not entry-specific).
+
+    Called once at Home Assistant startup regardless of how many (if
+    any) config entries exist — the right place to register the
+    "DEC - Vehículos" sidebar panel a single time. Also writes an
+    (initially empty, since no entry has loaded yet at this point)
+    dashboard file so the panel doesn't 404 before the first entry
+    finishes setting up.
+    """
+    dashboard.async_register_panel(hass)
+    await dashboard.async_write_dashboard(hass)
+    return True
 
 
 async def async_setup_entry(
@@ -79,6 +98,13 @@ async def async_setup_entry(
         PLATFORMS,
     )
 
+    # Defensive: async_setup already registers the panel once at HA
+    # startup, but a config entry can also be added at runtime
+    # without a restart, before async_setup would otherwise run for
+    # this domain — registering again here is a harmless no-op.
+    dashboard.async_register_panel(hass)
+    await dashboard.async_write_dashboard(hass)
+
     entry.async_on_unload(
         entry.add_update_listener(_async_options_updated)
     )
@@ -121,5 +147,7 @@ async def async_unload_entry(
 
             if not domain_data:
                 hass.data.pop(DOMAIN, None)
+
+        await dashboard.async_write_dashboard(hass)
 
     return unload_successful
