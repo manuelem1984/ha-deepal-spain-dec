@@ -76,36 +76,11 @@ la siguiente versión estable.
       método de login según país, traducciones de la propia integración)
 - [ ] Comandos de control con PIN (puertas, ventanas, maletero — el bloque
       grande que llevamos aplazando)
-- [ ] **Última tarea de esta lista**: Panel "DEC - Vehículos" — dashboard
-      Lovelace propio en la barra lateral (no requiere JavaScript ni
-      frontend a medida, ver `docs/dashboard.md`). Diseño acordado:
-      - Nombre: "DEC - Vehículos". Icono: `mdi:car` por ahora (pendiente el
-        emblema Deepal más adelante).
-      - Una pestaña por vehículo, titulada con su VIN (pendiente de
-        sustituir por un apodo/pseudónimo si encontramos el endpoint que lo
-        exponga).
-      - Icono de configuración en la pestaña con selector de unidad de
-        presión/temperatura (pendiente de diseño — ver "Decisiones de
-        diseño pendientes" en `docs/dashboard.md`).
-      - Máximo 3 secciones en horizontal por pestaña.
-      - **Tarjeta 1 (General)** — [x] título hecho en v1.3.1b7
-        ("Deepal S05 &lt;versión&gt; &lt;color&gt;"); [x] indicador de
-        batería (porcentaje + icono variable en pasos de 10%, en rojo si
-        &lt;10%, amarillo 10-30%, verde &gt;30%) añadido en v1.3.1b8,
-        alineado a la derecha del título. Pendiente: resto del estado
-        (cargando/enchufado, kilometraje, conectado/última actualización) y
-        acciones rápidas (actualizar, climatizador; bloquear/desbloquear
-        solo cuando exista el bloque de PIN).
-      - **Tarjeta 2 (🚗 Vehículo)**: VIN, kilometraje, estado del motor, y
-        una presión de neumáticos "calculada" (🟢 si las 4 están dentro de
-        rango — pendiente de decidir si es plantilla de dashboard o
-        entidad nueva).
-      - **Tarjeta 3 (🛞 Neumáticos)**: las 4 presiones, en la unidad
-        seleccionada.
-      - **Tarjeta 4 (🔋 Carga/Batería)**: estado, batería %, corriente,
-        potencia en kW (pendiente de investigar si el MQTT la trae con
-        otro nombre), tiempo restante.
-      - **Tarjeta 5 (🌡️ Climatizador y Confort)**: controles del
-        climatizador, temperatura/humedad interior, controles de
-        calefacción/ventilación de ambos asientos.
-      - **Tarjeta 6 (Otros)**: control de desempañado.
+- [ ] **Última tarea de esta lista**: diseñar una Card para el coche, con
+      la foto, los comandos sin PIN y los comandos con PIN todos juntos
+      - **Intento revertido (v1.3.1b7/b8)**: se llegó a implementar un panel
+        propio "DEC - Vehículos" en la barra lateral (dashboard Lovelace en
+        modo YAML, generado por la integración), con una pestaña por
+        vehículo y una tarjeta con título + indicador de batería. No
+        funcionaba bien en la práctica y se revirtió por completo en
+        v1.3.1b9. Antes de reintentarlo, averiguar qué falló exactamente.

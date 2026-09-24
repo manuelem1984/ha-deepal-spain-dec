@@ -149,15 +149,6 @@ VEHICLE_COLORS = {
     "moonlight_white": "Moonlight White",
 }
 
-# Sidebar dashboard ("DEC - Vehículos"), added in v1.3.1b7 — see
-# dashboard.py. Registered once at Home Assistant startup
-# (async_setup), regenerated on every config entry load/unload so it
-# always reflects the vehicles currently configured.
-DASHBOARD_URL_PATH = "deepal-vehiculos"
-DASHBOARD_TITLE = "DEC - Vehículos"
-DASHBOARD_ICON = "mdi:car"
-DASHBOARD_FILENAME = "deepal_spain_dec_dashboard.yaml"
-
 # Spain login methods
 LOGIN_METHOD_EMAIL = "email"
 LOGIN_METHOD_SMS = "sms"
