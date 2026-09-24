@@ -1,182 +1,217 @@
-# Catálogo de parámetros de telemetría
+# Parámetros de telemetría
 
-Inventario de todas las claves que el vehículo envía por MQTT, su estado de
-implementación en la integración y las comprobaciones pendientes. Para el
-control remoto (escribir en el coche, no leerlo), ver
-[`remote-control.md`](remote-control.md).
+Qué datos envía el Deepal S05 por MQTT, cuáles usa la integración, cómo se
+interpretan y cuáles quedan por investigar. Para los comandos (escribir en el
+coche en lugar de leerlo) ver [`remote-control.md`](remote-control.md).
 
-- **Vehículo de referencia:** Deepal S05 (VIN `LS6CME0P6TK106840`)
-- **Última actualización:** 2026-09-24 (v1.3.1b10: añadidos y confirmados
-  con datos reales los conectores de carga AC/DC)
-- **Claves recibidas en la primera captura:** 113
-- **Mapeadas a entidades:** 45
-- **Sin mapear / descartadas deliberadamente:** 68
+- **Vehículo de referencia:** Deepal S05 España.
+- **Última revisión:** v1.3.1b13.
+- **Claves vistas en las capturas:** 113 · **leídas por la integración:** 54
+  (lista exacta en `telemetry.MAPPED_KEYS`).
 
-## Cómo capturar valores
-
-Activar el log de depuración:
-
-```yaml
-logger:
-  default: warning
-  logs:
-    custom_components.deepal_spain_dec.mqtt: debug
-```
-
-Pulsar *Actualizar datos del vehículo* y buscar en los registros:
-
-- `Deepal MQTT: mapped keys received=` → claves presentes en el payload
-- `Deepal MQTT: candidate values=` → valores reales de las candidatas
-- `Deepal MQTT: unmapped service_code=` → servicios completos sin mapear
-
-### Leyenda de estado
+## Leyenda
 
 | Símbolo | Significado |
 | --- | --- |
-| OK | Mapeada y expuesta como entidad |
-| ? | Recibida, semántica sin confirmar |
-| X | Buscada por el código pero nunca recibida |
-| - | Descartada (no aplica al S05) |
+| ✅ | Comprobado con el coche real |
+| ⚠️ | Implementado; interpretación tomada de material de referencia, pendiente de comprobar con el coche real |
+| ? | Llega del coche, pero aún no se sabe qué significa |
+| ❌ | Descartado (no llega, no sirve o no aplica al S05) |
+
+## Cómo se procesan los datos
+
+1. `mqtt.py` recibe el mensaje del coche (un diccionario plano `clave: valor`).
+2. `telemetry.parameters_to_telemetry()` lo convierte en un `DeepalTelemetry`
+   (`models.py`) con valores ya limpios: enteros, decimales, booleanos o `None`
+   si el dato no llega.
+3. Tras cada lectura MQTT, `coordinator._async_overlay_condition()` pide un
+   segundo endpoint REST y **sustituye** solo los datos de asientos, volante y
+   desempañado (el MQTT no es fiable para ellos, ver
+   [`remote-control.md`](remote-control.md#4-lectura-fiable-de-asientos-y-volante)).
+4. Cada entidad (`sensor.py`, `binary_sensor.py`...) lee un campo de
+   `DeepalTelemetry`.
+
+Reglas de conversión que se repiten:
+
+- **Booleano** (`as_bool`): `0` → falso, cualquier otro número → verdadero.
+- **Conector de carga** (`as_charge_connector_connected`): `0` y `1` → no
+  conectado; `2` o más → conectado.
+- **Nivel de asiento** (`as_seat_level`): valor en bruto 0-6 ÷ 2 → nivel 0-3.
+- Si un dato no llega, la entidad muestra *Desconocido* en lugar de inventar un
+  valor.
 
 ---
 
-## 1. Implementadas
+## 1. Datos en uso
 
-Claves ya mapeadas en `telemetry.py`. No requieren acción.
+### Batería y carga
 
-| Clave | Entidad | Notas |
-| --- | --- | --- |
-| `soc` / `socDsp` / `remainPower` | Batería (%) | Se usa la primera disponible |
-| `remainedPowerMile` / `totalResidualMileage` | Autonomía estimada | |
-| `totalOdometer` | Odómetro | |
-| `engineStatus` | Motor - Estado | Muestra "Encendido"/"Apagado" (traducción propia, ver `strings.json`), no el texto genérico de `device_class: running` |
-| `latestDate` | Última actualización | ISO 8601 |
-| `ChrgSts` | Cargando | |
-| `BattACChrgInCurr` / `BattDCChrgInCurr` / `battACChrgInCurr` / `battDCChrgInCurr` | Corriente de carga | El fabricante envía ambas grafías |
-| `chargDeltMins` | Minutos restantes de carga | `8191` = valor nulo |
-| `acChargeGunConnectionState` | Conector AC | ✅ Corregido 2026-09-24: **`0` y `1` significan "no conectado"; solo `2` o más cuenta como conectado** (una manguera AC cargando reporta `3`). Un `1` visto con el coche realmente desenchufado nos hizo detectar que un booleano simple estaba mal — confirmado además con el mismo umbral usado por otro proyecto open-source, que lo verificó contra un coche aparcado real. Entidad "Conector AC", icono `mdi:ev-plug-type2` |
-| `dcChargeGunConnectionState` | Conector DC | ✅ Mismo umbral que la fila anterior. Entidad "Conector DC", icono `mdi:ev-plug-ccs2` |
-| `vehicleTemperature` | Temperatura interior | |
-| `innerHumidity` | Humedad interior | Décimas de % (se divide entre 10) |
-| `driverDoor` / `passengerDoor` / `leftRearDoor` / `rightRearDoor` | Puerta Delantera/Trasera Izquierda/Derecha | ✅ Confirmado contra el vehículo real: son las puertas físicas (abrir una puerta cambia esta entidad). Renombradas de "Ventanilla..." a "Puerta..." en v1.2.1b7 — la hipótesis anterior de que estos campos eran ventanas era incorrecta |
-| `trunk` | Maletero | |
-| `driverDoorLock` / `passengerDoorLock` | Puerta Delantera Izquierda/Derecha Bloqueo | Renombradas en v1.2.1b7 (antes "Puerta del Conductor/Acompañante Bloqueo") |
-| `diverWindow` / `passengerWindow` / `leftRearWindow` / `rightRearWindow` | ~~Ventanas~~ | ❌ Retirada en v1.2.0 por duplicar el conjunto anterior. `diverWindow` es errata del fabricante. **Ojo:** dado que `driverDoor`/etc. han resultado ser las puertas de verdad, estos campos (`diverWindow`/etc.) podrían ser en realidad las ventanas — pendiente de confirmar si interesa recuperarlos como entidad de ventana en el futuro |
-| `lfTyrePressure` / `rfTyrePressure` / `lrTyrePressure` / `rrTyrePressure` | Presión neumáticos | ✅ Confirmado 2026-09-18: la unidad en bruto **sí es kPa** (293,82 / 288,33 / 291,08 / 296,57 kPa ÷ 100 ≈ 2,9 / 2,9 / 2,9 / 3,0 bar, coincide con la app). Mostrado en `sensor.py` como bar vía `suggested_unit_of_measurement` (sin tocar el valor guardado) |
-| `highBeam` / `lowBeam` / `positionLamp` | Luces | |
-| `turnLndicatorLeft` / `turnLndicatorRight` | Luz Intermitente Izquierdo/Derecho | `Lndicator` es errata del fabricante. Entidades renombradas en v1.2.1b7 (antes "Intermitente izquierdo/derecho") |
-| `hoodStatus` | Capó | ✅ Confirmado 2026-09-18: `"0"` = cerrado, `"1"` = abierto |
-| `airStatus` | Climatizador - Estado | ✅ Confirmado 2026-09-18: `1` = encendido, `0` = apagado. Renombrada en v1.2.1b7 (antes "Aire acondicionado encendido") |
-| `airConditioningHairRatings` | Climatizador - Ventilador | ✅ Confirmado 2026-09-18: nivel entero (visto `2`). Rango completo (máximo) aún sin confirmar. Renombrada en v1.2.1b7 (antes "Velocidad del ventilador") |
-| `airConditioningSetTemperature` | Climatizador - Temperatura | ✅ Confirmado 2026-09-18: grados directos (`22.5` = 22,5 °C), sin escalar. Renombrada en v1.2.1b7 (antes "Consigna de temperatura"). **Ojo:** el comando de escritura (`control_air_conditioner`, ver `remote-control.md`) espera el valor en décimas de grado — formato distinto al de lectura, sin confirmar todavía |
-| `driverSeatHeatStatus` / `passengerSeatHeatStatus` | Calefacción asiento conductor/acompañante | ❌ Confirmado no fiable por MQTT (v1.3.1b6): comparando dos volcados de diagnósticos con el asiento apagado de verdad entre medias (confirmado en la app oficial), el valor no cambió. Desde v1.3.1b6 se sustituye por un endpoint distinto y fiable (`seat.leftFront.heatStatus`, escala 0-3 directa) — ver "0.4. Lectura fiable de asientos y volante" en `remote-control.md`. El campo MQTT se mantiene solo como reserva si ese endpoint falla |
-| `driverSeatAirStatus` / `passengerSeatAirStatus` | Ventilación asiento conductor/acompañante | ❌ Misma nota que la fila anterior — sustituido por `seat.leftFront.ventStatus` |
-| `steeringWheelHeating` | Volante calefactado | ❌ No fiable por MQTT (no sigue el interruptor real). Sustituido por `vehicleStatus.steeringWheelHeater` desde v1.3.1b6 — ver `remote-control.md` |
-| `frontDefrostStatus` | Desempañado delantero | ⚠️ No confirmado como el resto (no se probó explícitamente su fiabilidad), pero sustituido preventivamente por `hvac.defrostStatus` desde v1.3.1b6, igual que los tres anteriores |
-| `leftAnteriorWindowDegree` / `rightAnteriorWindowDegree` / `leftRearWindowDegree` / `rightRearWindowDegree` | ~~% de apertura de cada ventana~~ | ❌ Retirada en v1.2.0: confirmado el 2026-09-18 que **no** es la posición de la ventana, sino su **aceleración de movimiento** — el valor solo cambia mientras el cristal se está moviendo y vuelve a `0` en cuanto se detiene (aunque quede abierto). No sirve para saber si una ventana está abierta o cerrada, así que no se expone como entidad. Explica además un valor `12` visto repetidamente junto a la puerta abierta: el S05 no tiene marco en las ventanillas y las baja solo unos milímetros al abrir la puerta (para no rozar la junta), lo que activa brevemente este campo de aceleración sin que nadie tocara la ventana |
-
-## 2. Buscadas pero nunca recibidas (retiradas)
-
-`telemetry.py` consultaba estas claves, pero el vehículo nunca las envía — se
-ha confirmado en todas las capturas hechas hasta ahora, con el coche tanto
-parado como en marcha. Las entidades correspondientes se han retirado en vez
-de dejarlas mostrando "Desconocido" para siempre.
-
-| Clave buscada | Entidad retirada | Retirada en | Notas |
+| Clave | Entidad | Estado | Notas |
 | --- | --- | --- | --- |
-| `outsideTemperature`, `externalTemperature` | Temperatura exterior | v1.2.0 | Si en el futuro aparece un nombre de campo distinto para esto, se puede volver a añadir |
-| `vehicleSpeed`, `speed` | Velocidad | v1.2.0 | Probado también con el coche circulando (entrando en cochera) sin que apareciera ninguno de los dos campos |
-| `totalMeterYesterday` | Kilometraje de ayer | v1.2.1b10 | Campo importado por comparación con `ha-deepal-alternative` en v1.2.1. Ese mismo proyecto confirma en su propio código (`vehicle_model.py`) que **el S05 no manda campos de kilometraje por MQTT** — su `sensor.py` excluye explícitamente estos dos sensores para el S05 (`if ... and not is_s05(vehicle)`). No hizo falta ni probarlo con diagnósticos: la fuente que nos dio el campo confirma que no aplica a este modelo |
-| `igniteCumulativeMileage` | Kilometraje desde el encendido | v1.2.1b10 | Misma nota que la fila anterior |
-| `leftFrontTireTemperature` / `rightFrontTireTemperature` / `leftRearTireTemperature` / `rightRearTireTemperature` | Temperatura por neumático (4 entidades) | v1.2.1b10 | Probado contra el vehículo real: las 4 mostraban "Desconocido" permanentemente. A diferencia del kilometraje, `ha-deepal-alternative` no confirma ni desmiente este campo para el S05 en su código — solo crea las entidades de neumático cuando el cliente es `DeepalIntlClient` (cuentas internacionales, incluida la nuestra), sin distinguir MQTT de REST. Queda la duda abierta de si el S05 solo manda este dato en ciertas condiciones (p. ej. recién circulando) en vez de nunca — sección "Pendiente de investigar" al final de este documento |
+| `soc` / `socDsp` / `remainPower` | Batería | ✅ | Se usa la primera que llegue |
+| `remainedPowerMile` / `totalResidualMileage` | Autonomía estimada | ✅ | |
+| `ChrgSts` | Carga | ✅ | |
+| `acChargeGunConnectionState` | Conector AC | ✅ | `0`/`1` = no conectado; `2`+ = conectado (se ha visto `3` cargando). Un booleano simple fallaba: el coche manda `1` desenchufado |
+| `dcChargeGunConnectionState` | Conector DC | ✅ | Mismo umbral que el AC |
+| (calculado) | Carga - Estado | ✅ | Combina Carga + Conector AC + Conector DC → Desconectado / Conectado AC / Conectado DC / Cargando AC / Cargando DC |
+| `BattACChrgInCurr` / `BattDCChrgInCurr` / `battACChrgInCurr` / `battDCChrgInCurr` | Corriente de carga | ✅ | Primer valor disponible (AC o DC). El coche usa las dos grafías |
+| `BattACChrgInCurr` / `battACChrgInCurr` | Corriente de carga AC | ⚠️ | Nuevo en 1.3.1b13. Solo la parte AC |
+| `BattDCChrgInCurr` / `battDCChrgInCurr` | Corriente de carga DC | ⚠️ | Nuevo en 1.3.1b13. Solo la parte DC |
+| `chargDeltMins` | Tiempo de carga restante | ✅ | `8191` significa "sin estimación" → *Desconocido* |
 
-## 3. Candidatas prioritarias
+### Estado del vehículo
 
-Recibidas pero sin mapear. Ordenadas por utilidad práctica.
+| Clave | Entidad | Estado | Notas |
+| --- | --- | --- | --- |
+| `totalOdometer` | Kilometraje total | ✅ | |
+| `latestDate` / `lastUpdatedAt` | Última actualización | ✅ | ISO 8601, se guarda en UTC |
+| `engineStatus` | Motor - Estado | ✅ | Muestra "Encendido"/"Apagado" |
+| `powerStatusFeedBack` | Estado de alimentación | ⚠️ | Nuevo en 1.3.1b13. Código numérico en bruto (sensor de diagnóstico). Pendiente de anotar qué valor corresponde a apagado / accesorios / encendido / listo para circular |
+| (fijo) | Vehículo conectado | ✅ | Siempre "conectado" si la lectura tuvo éxito: indica que el coche responde en la nube, **no** que esté enchufado |
 
-### 3.1 Carga
+### Puertas, cierres y ventanillas
 
-| Clave | Hipótesis | Valor en reposo | Valor cargando | Estado |
-| --- | --- | --- | --- | --- |
-| `chargeCoverStatus` | Tapa de carga abierta | | | ? |
-| `chargeSystemStatus` | Estado del sistema de carga | | | ? |
-| `powerBatteryStatus` | Estado batería tracción | | | ? |
-| `powerBatteryBreakStatus` | Desconexión de batería | | | ? |
+| Clave | Entidad | Estado | Notas |
+| --- | --- | --- | --- |
+| `driverDoor` / `passengerDoor` / `leftRearDoor` / `rightRearDoor` | Puerta Delantera/Trasera Izquierda/Derecha | ✅ | Son las puertas físicas |
+| `trunk` | Maletero | ✅ | |
+| `hoodStatus` | Capó | ✅ | `0` cerrado, `1` abierto |
+| (calculado) | Alguna puerta abierta | ⚠️ | Nuevo en 1.3.1b13. Encendido si cualquiera de las 4 puertas **o el maletero** está abierto. El capó no cuenta. *Desconocido* solo si no se sabe nada de ninguna |
+| `driverDoorLock` / `passengerDoorLock` | Puerta Delantera Izquierda/Derecha Bloqueo | ⚠️ | Tipo "cerradura" de HA: *encendido = desbloqueado*. El material de referencia indica `0` = bloqueado; **falta comprobarlo** con el coche (cerrarlo con el mando y mirar la entidad) |
+| (calculado) | Cierre centralizado | ⚠️ | Nuevo en 1.3.1b13. "Desbloqueado" si cualquiera de las dos puertas delanteras lo está. Sigue exactamente la misma convención que las dos entidades anteriores, así que si esa convención se corrige, se corrige para las tres a la vez |
+| `diverWindow` / `passengerWindow` / `leftRearWindow` / `rightRearWindow` | Ventanilla Delantera/Trasera Izquierda/Derecha | ⚠️ | Nuevo en 1.3.1b13. `0` cerrada, otro valor abierta. `diverWindow` es una errata del propio coche. **Ojo:** el S05 no tiene marco en las ventanillas y las baja unos milímetros al abrir la puerta; puede verse "abierta" un momento al abrir o cerrar una puerta |
 
-### 3.2 Climatización
+### Neumáticos
 
-| Clave | Hipótesis | Apagado | Encendido | Estado |
-| --- | --- | --- | --- | --- |
-| `airRecycleStatus` | Recirculación de aire | | | ? |
-| `airPurifierStatus` | Purificador de aire | | | ? |
+| Clave | Entidad | Estado | Notas |
+| --- | --- | --- | --- |
+| `lfTyrePressure` / `rfTyrePressure` / `lrTyrePressure` / `rrTyrePressure` | Presión neumático | ✅ | Llega en kPa y se muestra en bar (293,8 kPa ≈ 2,9 bar, igual que la app) |
+| `lfPressureWarning` / `rfPressureWarning` / `lrPressureWarning` / `rrPressureWarning` | Alarma neumático | ⚠️ | Nuevo en 1.3.1b13. Tipo "problema": `0` = OK, otro valor = aviso. Muy difícil de comprobar a propósito; con presiones normales debe verse OK |
 
-### 3.3 Asientos y volante
+### Clima interior
 
-_(vacío — todo lo que había aquí se movió a la sección 1, ver más arriba)_
+| Clave | Entidad | Estado | Notas |
+| --- | --- | --- | --- |
+| `vehicleTemperature` | Temperatura interior | ✅ | Grados directos |
+| `innerHumidity` | Humedad interior | ✅ | Llega en décimas de % (se divide entre 10) |
+| `airStatus` | Climatizador - Estado | ✅ | `1` encendido, `0` apagado |
+| `airConditioningHairRatings` | Climatizador - Ventilador | ✅ | Nivel entero; máximo sin confirmar |
+| `airConditioningSetTemperature` | Climatizador - Temperatura | ✅ | Grados directos (`22.5`). El comando de escritura usa décimas (`225`) |
 
-### 3.4 Apertura y carrocería
+### Asientos, volante y desempañado
 
-| Clave | Hipótesis | Cerrado | Abierto | Estado |
-| --- | --- | --- | --- | --- |
-| `skyWindowDegree` | Apertura techo solar | | | ? Sin cambios en la prueba del 2026-09-18 pese a mover "el parasol" — puede que el parasol (cortinilla textil) y el techo corredizo (cristal) sean mecanismos distintos. Falta probar moviendo el cristal, no la cortinilla |
-| `spoilerPosition` | Posición del alerón | | | ? |
-| `spoilerMovement` | Alerón en movimiento | | | ? |
+El MQTT **no es fiable** para estos datos (guarda el último nivel configurado, no
+el estado actual). Se usan solo como reserva si falla el endpoint REST que los
+sustituye.
 
-### 3.5 Neumáticos
-
-| Clave | Hipótesis | Normal | Aviso | Estado |
-| --- | --- | --- | --- | --- |
-| `lfPressureWarning` | Aviso presión del. izq. | | | ? |
-| `rfPressureWarning` | Aviso presión del. dcha. | | | ? |
-| `lrPressureWarning` | Aviso presión tras. izq. | | | ? |
-| `rrPressureWarning` | Aviso presión tras. dcha. | | | ? |
-| `tireTemperatureStatus` | ~~Temperatura de neumáticos~~ | | | ❌ Hipótesis descartada en v1.2.1: no es un campo agregado. Los campos por rueda que se probaron en su lugar (`leftFrontTireTemperature`/etc.) tampoco funcionaron contra el vehículo real y se retiraron en v1.2.1b10 — ver sección 2 |
-| `tpmsLightStatus` | Testigo TPMS | | | ? |
-
-### 3.6 Llave y accesos
-
-| Clave | Hipótesis | Estado |
+| Clave MQTT (reserva) | Clave REST (la que se usa) | Entidad |
 | --- | --- | --- |
-| `keyLowPower` | Pila del mando baja | ? |
-| `keylessEntryStartSystemStatus` | Estado sistema keyless | ? |
-| `unlockKeyDrivingStatus` | Circulando con puertas abiertas | ? |
-| `unlockKeyDrivingStartTime` | Marca temporal del aviso anterior | ? |
-| `reverseRadarStatus` | Sensores de aparcamiento | ? |
+| `driverSeatHeatStatus` / `passengerSeatHeatStatus` | `seat.leftFront.heatStatus` / `seat.rightFront.heatStatus` | Calefacción asiento conductor / acompañante |
+| `driverSeatAirStatus` / `passengerSeatAirStatus` | `seat.leftFront.ventStatus` / `seat.rightFront.ventStatus` | Ventilación asiento conductor / acompañante |
+| `steeringWheelHeating` | `vehicleStatus.steeringWheelHeater` | Volante calefactado |
+| `frontDefrostStatus` | `hvac.defrostStatus` | Desempañado delantero |
 
-### 3.7 Luces adicionales
+### Luces
 
-| Clave | Hipótesis | Estado |
+| Clave | Entidad | Estado |
 | --- | --- | --- |
-| `frontFoglamp` | Antiniebla delantero | ? |
-| `rearFoglamp` | Antiniebla trasero | ? |
-| `brakeLightStatus` | Luz de freno | ? |
+| `highBeam` / `lowBeam` / `positionLamp` | Luz de carretera / de cruce / de posición | ✅ |
+| `turnLndicatorLeft` / `turnLndicatorRight` | Luz Intermitente Izquierdo / Derecho | ✅ (`Lndicator` es errata del coche) |
 
-## 4. Testigos del cuadro
+---
 
-Probablemente booleanos de avería, candidatos a `binary_sensor` con
-`device_class: problem`. Todos deberían valer `0` con el coche sano, lo que
-facilita confirmar la polaridad.
+## 2. Descartados
 
-> ⚠️ **Hallazgo 2026-09-18 — dos familias distintas, no confundir:**
-> en una captura real con el coche recién circulando (sin ninguna avería
-> conocida), estos campos aparecieron en `1` en vez de `0`:
-> `aebLightStatus`, `accLightStatus`, `accStatus`, `ldwStatus`,
-> `lwdLightStatus`, `machineOilStatus`. La hipótesis más probable es que los
-> relacionados con ADAS (frenada de emergencia, control de crucero, aviso de
-> cambio de carril) indican **"sistema activo/disponible"**, no una avería —
-> tendría sentido que estén a `1` con el coche en marcha. Quedan pendientes
-> de confirmar con una captura del coche parado/apagado (deberían bajar a
-> `0`, o no — hay que comprobarlo). El resto de la tabla de abajo sí se
-> comportó como se esperaba (`0` en todos, sin avisos).
+### No llegan nunca en el S05
+
+Se buscaron en todas las capturas (coche parado y en marcha) y no aparecen. Las
+entidades se retiraron para no mostrar *Desconocido* para siempre.
+
+| Clave | Entidad retirada | Versión |
+| --- | --- | --- |
+| `outsideTemperature`, `externalTemperature` | Temperatura exterior | 1.2.0 |
+| `vehicleSpeed`, `speed` | Velocidad | 1.2.0 |
+| `totalMeterYesterday` | Kilometraje de ayer | 1.2.1b10 |
+| `igniteCumulativeMileage` | Kilometraje del trayecto | 1.2.1b10 |
+| `leftFrontTireTemperature` y resto de ruedas | Temperatura de cada neumático | 1.2.1b10 |
+
+### Llegan, pero no sirven
+
+| Clave | Motivo |
+| --- | --- |
+| `leftAnteriorWindowDegree` / `rightAnteriorWindowDegree` / `leftRearWindowDegree` / `rightRearWindowDegree` | No es la apertura de la ventanilla: es su **movimiento**. Solo cambia mientras el cristal se mueve y vuelve a `0` al pararse |
+
+### No aplican al S05
+
+| Clave | Motivo |
+| --- | --- |
+| `fuelLeftover`, `remainingFuel`, `remainedOilMile` | El S05 de España es eléctrico puro (sin depósito) |
+| `leftBackSeatHeatStatus`, `rightBackSeatHeatStatus`, `leftBackSeatVentilateStatus`, `rightBackSeatVentilateStatus` | El S05 de España no tiene calefacción ni ventilación en las plazas traseras |
+| `airPurifierStatus` (como "calidad del aire") | El material de referencia lo interpreta como nivel de calidad del aire, pero excluye ese dato para el S05. Sigue en la lista de candidatas como "purificador" |
+| `electronichandbrakeStatus` (como sensor de freno de mano) | Igual: el material de referencia no lo considera fiable en el S05. Sigue como candidata |
+
+---
+
+## 3. Candidatas (llegan, pero aún no se sabe qué significan)
+
+### Carga
+
+| Clave | Hipótesis |
+| --- | --- |
+| `chargeCoverStatus` | Tapa de carga abierta |
+| `chargeSystemStatus` | Estado del sistema de carga |
+| `powerBatteryStatus` | Estado de la batería de tracción |
+| `powerBatteryBreakStatus` | Desconexión de la batería |
+
+### Climatización
+
+| Clave | Hipótesis |
+| --- | --- |
+| `airRecycleStatus` | Recirculación de aire |
+| `airPurifierStatus` | Purificador de aire |
+
+### Carrocería
+
+| Clave | Hipótesis |
+| --- | --- |
+| `skyWindowDegree` | Apertura del techo. No cambió al mover la cortinilla; falta probar moviendo el cristal |
+| `spoilerPosition` / `spoilerMovement` | Posición / movimiento del alerón |
+
+### Llave y accesos
+
+| Clave | Hipótesis |
+| --- | --- |
+| `keyLowPower` | Pila del mando baja |
+| `keylessEntryStartSystemStatus` | Sistema de acceso sin llave |
+| `unlockKeyDrivingStatus` / `unlockKeyDrivingStartTime` | Circulando con puertas abiertas (y cuándo empezó) |
+| `reverseRadarStatus` | Sensores de aparcamiento |
+
+### Luces adicionales
+
+| Clave | Hipótesis |
+| --- | --- |
+| `frontFoglamp` / `rearFoglamp` | Antinieblas delantero / trasero |
+| `brakeLightStatus` | Luz de freno |
+
+### Testigos del cuadro
+
+Probablemente avisos de avería (candidatos a binary_sensor de tipo "problema").
+Con el coche sano deberían valer `0`.
+
+> **Ojo:** con el coche recién circulando aparecieron en `1` `aebLightStatus`,
+> `accLightStatus`, `accStatus`, `ldwStatus`, `lwdLightStatus` y
+> `machineOilStatus`. Los de asistencia a la conducción (frenada de emergencia,
+> crucero, carril) probablemente indican "sistema activo", no avería. Falta una
+> captura con el coche apagado para confirmarlo.
 
 | Clave | Testigo probable |
 | --- | --- |
-| `absLightStatus` | ABS |
+| `absLightStatus` / `absStatus` | ABS |
 | `airBagLightStatus` | Airbag |
-| `batt12VLightStatus` | Batería 12 V |
+| `batt12VLightStatus` | Batería de 12 V |
 | `bcuBattSocLightStatus` | Nivel de batería de tracción |
 | `brakeFluidLightStatus` | Líquido de frenos |
-| `coolanTemperatureLightStatus` | Temperatura refrigerante |
+| `coolanTemperatureLightStatus` | Temperatura del refrigerante |
 | `emsLightStatus` | Gestión del motor |
 | `epbLightStatus` | Freno de mano eléctrico |
 | `epsLightStatus` | Dirección asistida |
@@ -186,16 +221,13 @@ facilita confirmar la polaridad.
 | `powerLimitLightStatus` | Potencia limitada |
 | `powerSystemLightStatus` | Sistema eléctrico |
 | `aebLightStatus` | Frenada de emergencia |
-| `iaccLightStatus` | Control de crucero adaptativo |
-| `lwdLightStatus` | Aviso de cambio de carril |
-| `accLightStatus` | Control de crucero |
+| `iaccLightStatus` / `accLightStatus` / `accStatus` | Control de crucero |
+| `lwdLightStatus` / `ldwStatus` | Aviso de cambio de carril |
 | `pepsLightStatus` | Acceso sin llave |
-| `ldwStatus` | Aviso de cambio de carril |
-| `accStatus` | Estado del control de crucero |
-| `absStatus` | Estado del ABS |
+| `tpmsLightStatus` | Testigo de presión de neumáticos |
 | `batteryVoltageError` | Error de tensión de batería |
 
-### Estados de subsistema
+### Estado de subsistemas
 
 | Clave | Subsistema |
 | --- | --- |
@@ -210,71 +242,60 @@ facilita confirmar la polaridad.
 | `transmissionSystemStatus` | Transmisión |
 | `vehicleStabilityControlSystemStatus` | Control de estabilidad |
 | `assistantSteeringStatus` | Dirección asistida |
-| `powerStatusFeedBack` | Estado de alimentación |
-
-## 5. No aplicables al S05
-
-Heredadas de plataformas de combustión. El S05 es eléctrico puro, por lo que se
-espera que devuelvan cero o valores sin sentido.
-
-| Clave | Motivo |
-| --- | --- |
-| `fuelLeftover` | - Sin depósito |
-| `remainingFuel` | - Sin depósito |
-| `remainedOilMile` | - Sin depósito |
-| `leftBackSeatHeatStatus` / `rightBackSeatHeatStatus` / `leftBackSeatVentilateStatus` / `rightBackSeatVentilateStatus` | - Detectados en `ha-deepal-alternative`, pero el Deepal S05 comercializado en España **no lleva** calefacción/ventilación en las plazas traseras — de propósito, no se implementan |
-
-> Confirmar que efectivamente valen `0`. Si devolvieran algo coherente habría
-> que revisar la hipótesis.
 
 ---
 
-## Plan de comprobación en el vehículo
+## 4. Cómo capturar datos del coche
 
-Dos capturas comparadas bastan para deducir la mayoría de escalas.
+**Opción A — diagnósticos (recomendada).** En la página del dispositivo, menú ⋮ →
+*Descargar diagnósticos*. El JSON incluye:
 
-**Captura A — reposo**
+- `entidades_mapeadas`: el valor actual de cada entidad.
+- `parametros_en_bruto`: todo lo que mandó el coche en la última lectura.
+- `sin_mapear`: lo que llega pero ninguna entidad usa todavía.
 
-Coche cerrado, sin contacto, climatización apagada, sin cargar.
+Datos personales (VIN, tokens, teléfono...) salen ocultos automáticamente.
 
-**Captura B — con cambios provocados**
+**Opción B — registro de depuración.**
 
-Aplicar y anotar cada acción:
+```yaml
+logger:
+  default: warning
+  logs:
+    custom_components.deepal_spain_dec.mqtt: debug
+```
 
-1. Abrir el capó
-2. Bajar una ventanilla concreta hasta la mitad
-3. Abrir el techo solar por completo (el cristal, no solo la cortinilla)
-4. Encender la climatización a una temperatura exacta (por ejemplo 21 °C)
-5. Poner el ventilador en una velocidad concreta
-6. Activar la calefacción del asiento del conductor
-7. Enchufar el cable de carga
-8. Encender los antiniebla
+Pulsa *Actualizar datos del vehículo* y busca en los registros:
 
-Comparando A y B, cada clave que cambie queda identificada sin ambigüedad,
-incluida su escala. Anotar los resultados en las columnas vacías de las tablas
-anteriores.
+- `Deepal MQTT: mapped keys received=` → claves que llegaron.
+- `Deepal MQTT: candidate values=` → valores reales de las candidatas.
+- `Deepal MQTT: unmapped service_code=` → bloques completos sin mapear.
 
-## Pendiente de investigar
+### Plan de prueba en dos capturas
 
-- **Temperatura por neumático**: retirada en v1.2.1b10 (sección 2). Sigue
-  abierta la duda de si el S05 la manda solo en ciertas condiciones (p. ej.
-  recién circulando, ver el hallazgo de `_merge_condition` en
-  `ha-deepal-alternative` sobre payloads MQTT parciales) en vez de nunca — si
-  alguien quiere investigarlo más adelante, capturar justo después de
-  conducir en vez de con el coche parado.
-- **Control remoto**: puertas, ventanas y maletero (requieren PIN) — ver
-  [`remote-control.md`](remote-control.md) para el estado completo. La
-  climatización, luces y claxon ya están implementados (sin PIN); luces y
-  claxon confirmados funcionando, climatización pendiente de una segunda
-  prueba tras el arreglo de renovación de sesión en v1.2.1b8.
-- **Posición GPS**: investigado a fondo (2026-09-2x) en `ha-deepal-alternative`
-  — no hay evidencia de que se exponga en ningún sitio de esta familia de
-  API, ni por MQTT (S05) ni por REST (S07/SL03/L07). Su propio
-  `diagnostics.py` redacta `latitude`/`longitude`/`lat`/`lon`/`lng` como
-  medida preventiva, pero no hay ningún mapeo de datos real ni entidad
-  `device_tracker` en su código que use esos campos — es decir, ni siquiera
-  ellos lo han visto llegar nunca, solo se protegen por si acaso. Hemos
-  adoptado la misma redacción preventiva en nuestro propio
-  `diagnostics.py` (`lat`/`lon`/`lng` como claves exactas, `latitude`/
-  `longitude` como subcadena) desde v1.2.1b11, sin que eso implique que el
-  dato exista.
+1. **Captura A (reposo):** coche cerrado con el mando, sin contacto, clima
+   apagado, sin cargar.
+2. **Captura B (con cambios):** anota cada acción que hagas, por ejemplo:
+   abrir el capó, bajar una ventanilla concreta, abrir el techo (el cristal),
+   encender el clima a 21 °C, cambiar la velocidad del ventilador, activar un
+   asiento, enchufar el cable, encender antinieblas, **abrir el coche con el
+   mando** (para confirmar los bloqueos) y **dar el contacto** (para el Estado de
+   alimentación).
+
+Comparando A y B, cada clave que cambia queda identificada junto con su escala.
+Anota el resultado en las tablas de arriba.
+
+## 5. Pendiente de investigar
+
+- **Bloqueos:** confirmar qué valor de `driverDoorLock` / `passengerDoorLock`
+  significa "bloqueado" (afecta a las dos entidades de bloqueo y a Cierre
+  centralizado).
+- **Estado de alimentación:** anotar los valores de `powerStatusFeedBack` en cada
+  situación (apagado, accesorios, contacto, listo) para darle nombres legibles.
+- **Temperatura exterior y de neumáticos:** el endpoint REST que ya se usa para los
+  asientos parece incluirlas. Se podrían recuperar desde ahí.
+- **Frescura de los datos REST:** comparar su `lastUpdatedAt` con el del MQTT antes
+  de sustituir, para no pisar un dato nuevo con uno viejo.
+- **GPS:** no hay ninguna prueba de que esta API exponga la posición. Los
+  diagnósticos ocultan `lat`/`lon`/`lng`/`latitude`/`longitude` por precaución, por
+  si algún día aparecen.

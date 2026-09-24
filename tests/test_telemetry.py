@@ -176,11 +176,12 @@ def realistic_payload() -> dict:
         "totalResidualMileage": 185,
         # Vehicle
         "engineStatus": 0,
+        "powerStatusFeedBack": 2,
         "totalOdometer": 12345.6,
         "latestDate": "2026-09-18T00:48:36Z",
         # Charging
         "ChrgSts": 0,
-        "BattACChrgInCurr": 0,
+        "BattACChrgInCurr": 15.5,
         "BattDCChrgInCurr": 0,
         "chargDeltMins": 8191,
         "acChargeGunConnectionState": 3,
@@ -202,6 +203,10 @@ def realistic_payload() -> dict:
         "rfTyrePressure": 230,
         "lrTyrePressure": 225,
         "rrTyrePressure": 225,
+        "lfPressureWarning": 0,
+        "rfPressureWarning": 1,
+        "lrPressureWarning": 0,
+        "rrPressureWarning": 0,
         # Lights
         "highBeam": 0,
         "lowBeam": 0,
@@ -215,26 +220,24 @@ def realistic_payload() -> dict:
         "airConditioningSetTemperature": 22.5,
         # Seats/steering wheel/defrost — remote control added in
         # v1.3.1b4; scale (0-6 raw ÷ 2 = 0-3 level) and field names
-        # cross-checked against ha-deepal-alternative's own MQTT
-        # parsing, not yet confirmed against this vehicle.
+        # cross-checked against an independent reference
+        # implementation, not yet confirmed against this vehicle.
         "driverSeatHeatStatus": 6,
         "passengerSeatHeatStatus": 0,
         "driverSeatAirStatus": 4,
         "passengerSeatAirStatus": 2,
         "steeringWheelHeating": 1,
         "frontDefrostStatus": 0,
-        # Fields the vehicle sends but the integration deliberately
-        # does not map (see docs/telemetry-parameters.md):
-        # - diverWindow/passengerWindow/leftRearWindow/rightRearWindow
-        #   duplicated front_left_door/etc.; removed in v1.2.0 to avoid
-        #   two entities for the same physical door.
-        # - *WindowDegree fields turned out to report movement
-        #   acceleration while the window is moving, not its resting
-        #   position — not useful as a Home Assistant entity.
-        "diverWindow": 0,
+        # Windows (mapped since v1.3.1b13). `diverWindow` is the car's
+        # own typo.
+        "diverWindow": 1,
         "passengerWindow": 0,
         "leftRearWindow": 0,
         "rightRearWindow": 0,
+        # Fields the vehicle sends but the integration deliberately
+        # does not map (see docs/telemetry-parameters.md): the
+        # *WindowDegree fields report movement acceleration while the
+        # window is moving, not its resting position.
         "leftAnteriorWindowDegree": "0",
         "skyWindowDegree": 0,
     }
@@ -272,21 +275,34 @@ def test_parameters_to_telemetry_maps_known_fields(realistic_payload):
     assert result.passenger_seat_vent_level == 1
     assert result.steering_wheel_heat_on is True
     assert result.front_defrost_on is False
+    # Added in v1.3.1b13.
+    assert result.power_status == 2
+    assert result.charge_current == 15.5  # combined: first available (AC)
+    assert result.ac_charge_current == 15.5
+    assert result.dc_charge_current == 0.0
+    assert result.front_left_window_open is True
+    assert result.front_right_window_open is False
+    assert result.rear_left_window_open is False
+    assert result.rear_right_window_open is False
+    assert result.left_front_tire_alarm is False
+    assert result.right_front_tire_alarm is True
+    assert result.left_rear_tire_alarm is False
+    assert result.right_rear_tire_alarm is False
 
 
 def test_telemetry_has_no_removed_fields():
     # Removed in v1.2.0 — speed and outside temperature are never
     # sent by the real vehicle (see docs/telemetry-parameters.md,
-    # "Buscadas pero nunca recibidas"); front_left_window/etc.
-    # duplicated front_left_door/etc.; the *WindowDegree fields report
-    # movement acceleration, not window position. Removed in
-    # v1.2.1b10 — mileage_yesterday_km/ignition_cumulative_mileage_km
-    # and the four tire temperature fields, imported from another
-    # open-source Deepal integration in v1.2.1, confirmed against the
-    # real vehicle (and by that project's own code, which explicitly
-    # excludes mileage_yesterday/trip for the S05) to not be reported
-    # by this vehicle. Keeping this test ensures nobody re-adds any of
-    # these without re-reading why they were taken out.
+    # "Buscadas pero nunca recibidas"); the old front_left_window/etc.
+    # fields were really the doors (renamed to front_left_door/etc.);
+    # the *WindowDegree fields report movement acceleration, not
+    # window position. The real windows came back in v1.3.1b13 under
+    # different names (front_left_window_open/etc.), fed by
+    # diverWindow/etc. Removed in v1.2.1b10 —
+    # mileage_yesterday_km/ignition_cumulative_mileage_km and the four
+    # tire temperature fields: not reported by the S05 over MQTT.
+    # Keeping this test ensures nobody re-adds any of these without
+    # re-reading why they were taken out.
     removed_fields = {
         "speed_kmh",
         "outside_temperature_c",
@@ -383,6 +399,16 @@ def test_mapped_keys_excludes_known_unmapped_fields(key):
         "frontDefrostStatus",
         "acChargeGunConnectionState",
         "dcChargeGunConnectionState",
+        # v1.3.1b13
+        "powerStatusFeedBack",
+        "diverWindow",
+        "passengerWindow",
+        "leftRearWindow",
+        "rightRearWindow",
+        "lfPressureWarning",
+        "rfPressureWarning",
+        "lrPressureWarning",
+        "rrPressureWarning",
     ],
 )
 def test_mapped_keys_contains_newly_mapped_fields(key):
@@ -394,12 +420,6 @@ def test_mapped_keys_contains_newly_mapped_fields(key):
 @pytest.mark.parametrize(
     "key",
     [
-        # diverWindow/etc. duplicated front_left_door/etc. — removed
-        # in v1.2.0.
-        "diverWindow",
-        "passengerWindow",
-        "leftRearWindow",
-        "rightRearWindow",
         # *WindowDegree fields report movement acceleration, not
         # window position — removed in v1.2.0.
         "leftAnteriorWindowDegree",
@@ -407,11 +427,8 @@ def test_mapped_keys_contains_newly_mapped_fields(key):
         "leftRearWindowDegree",
         "rightRearWindowDegree",
         # totalMeterYesterday/igniteCumulativeMileage and the four
-        # *TireTemperature fields — imported from another open-source
-        # Deepal integration in v1.2.1, then confirmed against the
-        # real vehicle (and, for mileage, confirmed by that same
-        # project's own code excluding it for the S05) to not be
-        # reported for this vehicle. Removed in v1.2.1b10.
+        # *TireTemperature fields — added in v1.2.1, then confirmed
+        # not to be reported by the S05. Removed in v1.2.1b10.
         "totalMeterYesterday",
         "igniteCumulativeMileage",
         "leftFrontTireTemperature",
@@ -436,11 +453,114 @@ def test_mapped_keys_excludes_fields_removed_in_v1_2_0(key):
     ],
 )
 def test_as_charge_connector_connected(raw_value, expected):
-    # 0 *and* 1 both mean "not connected" — cross-checked against
-    # another open-source Deepal integration's code (and its own
-    # comment that it verified 0 against a real parked, unplugged
-    # car). A plain as_bool() would wrongly treat 1 as connected —
-    # confirmed as a real regression by a user seeing "Conector AC:
-    # Enchufado" with the car genuinely unplugged (raw value 1).
+    # 0 *and* 1 both mean "not connected". A plain as_bool() would
+    # wrongly treat 1 as connected — confirmed as a real regression by
+    # a user seeing "Conector AC: Enchufado" with the car genuinely
+    # unplugged (raw value 1).
     assert telemetry.as_charge_connector_connected(raw_value) is expected
 
+
+
+# ---------------------------------------------------------------------------
+# Aggregates used by binary_sensor.py (added in v1.3.1b13)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("doors", "trunk", "expected"),
+    [
+        ((False, False, False, False), False, False),
+        ((True, False, False, False), False, True),
+        ((False, False, False, True), False, True),
+        ((False, False, False, False), True, True),  # trunk counts
+        ((None, None, None, None), None, None),  # nothing known yet
+        ((None, False, None, None), None, False),  # partial, none open
+        ((None, None, True, None), None, True),  # partial, one open
+    ],
+)
+def test_any_door_open(doors, trunk, expected):
+    data = DeepalTelemetry(
+        front_left_door=doors[0],
+        front_right_door=doors[1],
+        rear_left_door=doors[2],
+        rear_right_door=doors[3],
+        trunk_open=trunk,
+    )
+    assert telemetry.any_door_open(data) is expected
+
+
+def test_any_door_open_ignores_hood():
+    data = DeepalTelemetry(
+        front_left_door=False,
+        front_right_door=False,
+        rear_left_door=False,
+        rear_right_door=False,
+        trunk_open=False,
+        hood_open=True,
+    )
+    assert telemetry.any_door_open(data) is False
+
+
+@pytest.mark.parametrize(
+    ("driver", "passenger", "expected"),
+    [
+        (False, False, False),
+        (True, False, True),
+        (False, True, True),
+        (True, True, True),
+        (None, None, None),
+        (None, False, False),
+        (True, None, True),
+    ],
+)
+def test_any_door_unlocked(driver, passenger, expected):
+    data = DeepalTelemetry(
+        driver_locked=driver,
+        passenger_locked=passenger,
+    )
+    assert telemetry.any_door_unlocked(data) is expected
+
+
+def test_parameters_to_telemetry_split_charge_current_lowercase_keys():
+    # The car sends both spellings (Batt*/batt*); either must work.
+    result = telemetry.parameters_to_telemetry(
+        {"battACChrgInCurr": "0", "battDCChrgInCurr": "120.5"}
+    )
+    assert result.ac_charge_current == 0.0
+    assert result.dc_charge_current == 120.5
+
+
+def test_parameters_to_telemetry_new_fields_absent_are_none():
+    result = telemetry.parameters_to_telemetry({})
+    for field in (
+        "power_status",
+        "ac_charge_current",
+        "dc_charge_current",
+        "front_left_window_open",
+        "front_right_window_open",
+        "rear_left_window_open",
+        "rear_right_window_open",
+        "left_front_tire_alarm",
+        "right_front_tire_alarm",
+        "left_rear_tire_alarm",
+        "right_rear_tire_alarm",
+    ):
+        assert getattr(result, field) is None, field
+
+
+def test_mapped_keys_covers_every_key_read_by_parameters_to_telemetry():
+    """Every raw key parameters_to_telemetry() reads must be in MAPPED_KEYS.
+
+    Scans the function's source for string literals, so adding a new
+    field without updating MAPPED_KEYS (which diagnostics.py relies on)
+    fails here.
+    """
+    import inspect
+    import re
+
+    source = inspect.getsource(telemetry.parameters_to_telemetry)
+    literals = set(re.findall(r'"([A-Za-z][A-Za-z0-9]+)"', source))
+    assert literals, "no keys found — did the function change shape?"
+    assert literals <= telemetry.MAPPED_KEYS, (
+        literals - telemetry.MAPPED_KEYS
+    )

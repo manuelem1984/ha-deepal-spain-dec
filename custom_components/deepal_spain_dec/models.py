@@ -77,6 +77,18 @@ class DeepalTelemetry:
     ac_charge_connector_connected: bool | None = None
     dc_charge_connector_connected: bool | None = None
 
+    # Charging current split by connector type (amperes). The combined
+    # `charge_current` above keeps its original behaviour (first value
+    # available, AC or DC); these two report each side separately so a
+    # dashboard can tell a wallbox session apart from a fast charger.
+    ac_charge_current: float | None = None
+    dc_charge_current: float | None = None
+
+    # Raw power-mode feedback (`powerStatusFeedBack`). Integer code as
+    # sent by the car; the meaning of each value has not been mapped
+    # yet, so it is exposed as-is in a diagnostic sensor.
+    power_status: int | None = None
+
     # Climate
     inside_temperature_c: float | None = None
 
@@ -91,6 +103,14 @@ class DeepalTelemetry:
 
     trunk_open: bool | None = None
 
+    # Windows (True = open). Fed by `diverWindow` (sic — the car's own
+    # typo), `passengerWindow`, `leftRearWindow` and `rightRearWindow`.
+    front_left_window_open: bool | None = None
+    front_right_window_open: bool | None = None
+
+    rear_left_window_open: bool | None = None
+    rear_right_window_open: bool | None = None
+
     # Locks
     driver_locked: bool | None = None
     passenger_locked: bool | None = None
@@ -101,6 +121,15 @@ class DeepalTelemetry:
 
     left_rear_tire_pressure: float | None = None
     right_rear_tire_pressure: float | None = None
+
+    # Tyre pressure warnings (True = the car flags a problem on that
+    # tyre). Fed by `lfPressureWarning`, `rfPressureWarning`,
+    # `lrPressureWarning` and `rrPressureWarning`.
+    left_front_tire_alarm: bool | None = None
+    right_front_tire_alarm: bool | None = None
+
+    left_rear_tire_alarm: bool | None = None
+    right_rear_tire_alarm: bool | None = None
 
     # Lights
     high_beam: bool | None = None
@@ -121,8 +150,8 @@ class DeepalTelemetry:
 
     # Seat heating/ventilation level (0 = off, 1-3 = level) and
     # steering wheel heating / front defrost on-off. Field names and
-    # scale (raw ÷ 2) cross-checked against ha-deepal-alternative's
-    # own MQTT parsing for this exact vehicle class — not yet
+    # scale (raw ÷ 2) cross-checked against an independent reference
+    # implementation for this exact vehicle class — not yet
     # confirmed against this specific vehicle. Remote control added
     # in v1.3.1b4 (see docs/remote-control.md); reading these was
     # added at the same time since a number/switch entity that always

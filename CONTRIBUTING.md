@@ -19,9 +19,14 @@ No hace falta un Home Assistant real para la mayoría de cambios en la lógica p
 (`telemetry.py`, `crypto.py`, `api_errors.py`):
 
 ```bash
-pip install pytest cryptography
+pip install pytest cryptography aiohttp
 pytest tests/ -v
 ```
+
+Las entidades (`sensor.py`, `binary_sensor.py`...) importan Home Assistant, que no
+está en el entorno de pruebas. Por eso la lógica que se puede probar vive en
+`telemetry.py` (funciones puras) y las descripciones de entidades se comprueban
+como texto en `tests/test_entity_descriptions.py`.
 
 Para probar la integración de verdad hace falta una instancia de Home Assistant
 (≥ 2026.3.0) y una cuenta de Deepal España — idealmente una cuenta secundaria con el
@@ -35,7 +40,11 @@ Importantes").
 - Si añades un campo de telemetría o comando nuevo, documéntalo en
   `docs/telemetry-parameters.md` o `docs/remote-control.md`, aunque no lo hayas
   podido confirmar todavía contra el vehículo real — marca claramente qué está
-  confirmado y qué es solo una hipótesis.
+  confirmado (✅) y qué está pendiente (⚠️).
+- Para un dato nuevo del MQTT: añade el campo a `models.py`, léelo en
+  `telemetry.parameters_to_telemetry()`, añade la clave a `MAPPED_KEYS` (hay un
+  test que falla si se te olvida), crea la entidad y añade un test.
+- Añade una línea al README (tabla de entidades) y a `CHANGELOG.md`.
 - Si tocas `manifest.json`, la versión debe coincidir con el tag que se vaya a
   publicar (ver más abajo).
 
@@ -43,10 +52,11 @@ Importantes").
 
 1. Sube la versión en `manifest.json` — es la única fuente de verdad, `const.py` la
    lee sola.
-2. Commit y push.
-3. Crea el tag/release en GitHub (marca **pre-release** si es una beta) usando la
+2. Añade la sección de la versión en `CHANGELOG.md`.
+3. Commit y push.
+4. Crea el tag/release en GitHub (marca **pre-release** si es una beta) usando la
    plantilla de [`.github/release_template.md`](.github/release_template.md).
-4. El workflow de CI valida automáticamente que el tag coincide con la versión de
+5. El workflow de CI valida automáticamente que el tag coincide con la versión de
    `manifest.json` — si no coincide, el release falla y hay que corregirlo antes de
    volver a intentarlo.
 

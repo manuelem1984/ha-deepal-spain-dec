@@ -1,223 +1,72 @@
-# Deepal Spain Backend Notes
-
-## Estado
-
-Información obtenida mediante análisis del tráfico de la aplicación oficial Deepal para España.
-
----
-
-## Autenticación SMS
-
-Endpoint:
-
-/intl-app-gw/intl-app-auth/api/login/send-auth-code
-
----
-
-## Autenticación Email
-
-Endpoint:
-
-/intl-app-gw/intl-app-auth/api/login/email-send-auth-code
-
----
-
-## Login SMS
-
-Endpoint:
-
-/intl-app-gw/intl-app-auth/api/login/login-by-mobile-code
-
-Devuelve:
-
-- token
-- refreshToken
-- cacToken
-- userId
-- caUserId
-- cacUserId
-
----
-
-## Login Email
-
-Endpoint:
-
-/intl-app-gw/intl-app-auth/api/login/email-code-in
-
-Devuelve:
-
-- token
-- refreshToken
-- cacToken
-- userId
-- caUserId
-- cacUserId
-
----
-
-## Refresh Token
-
-Endpoint:
-
-/intl-app-gw/intl-app-auth/api/auth/refresh-token
-
----
-
-## Vehicle Discovery
-
-Endpoint:
-
-/intl-app-gw/intl-app-user/api/car/vehicles
-
----
-
-## MQTT Connection Configuration
-
-Endpoint:
-
-/user-apigw/vot-connect-conf-center/api/device/getConnConf
-
-Requiere:
-
-X-Tsp-User-Token = access_token
-
-Importante:
-
-NO utilizar cacToken
-
----
-
-## MQTT Auth Token
-
-Endpoint:
-
-/user-apigw/vot-connect-auth-center/api/auth/getAuthTokenByUserId
-
-Requiere:
-
-userId
-
----
-
-## Remote Control (sin PIN) — desde v1.2.1b2
-
-Ver [`remote-control.md`](remote-control.md) para el protocolo completo
-(firma RSA-SHA256, número de serie cifrado, etc.). Resumen de endpoints:
-
-/intl-app-gw/intl-app-car-control/api/serial-no/get
-/intl-app-gw/intl-app-car-control/api/control/air-conditioner
-/intl-app-gw/intl-app-car-control/api/control/condition-inquiry
-/intl-app-gw/intl-app-car-control/api/control/flashing-honking
-
-Confirmado contra el vehículo real: parpadeo de luces y claxon. Pendiente:
-climatización (ver `remote-control.md`, sección 4). Puertas, ventanas y
-maletero necesitan además el PIN de control — no implementado todavía.
-
----
-
-## Confirmaciones realizadas
-
-✅ Login SMS España (+34)
-
-✅ Login Email
-
-✅ Vehicle Discovery
-
-✅ MQTT Config
-
-✅ MQTT Auth
-
-✅ X-Tsp-User-Token = access_token
-
-❌ X-Tsp-User-Token = cacToken
-
-✅ Control remoto sin PIN (parpadeo de luces, claxon)
-
-⚠️ Control remoto sin PIN (climatización) — pendiente de confirmar
-
----
-
-# Telemetry Inventory
-
-## Battery
-
-- soc
-
-## Range
-
-- remainedPowerMile
-
-## Vehicle
-
-- totalOdometer
-- latestDate
-
-## Climate
-
-- vehicleTemperature
-- innerHumidity
-
-## Charging
-
-- ChrgSts
-- chargDeltMins
-
-## Doors
-
-- driverDoor
-- passengerDoor
-- leftRearDoor
-- rightRearDoor
-
-## Windows
-
-- diverWindow
-- passengerWindow
-- leftRearWindow
-- rightRearWindow
-
-## Locks
-
-- driverDoorLock
-- passengerDoorLock
-
-## TPMS
-
-- lfTyrePressure
-- rfTyrePressure
-- lrTyrePressure
-- rrTyrePressure
-
-## Lights
-
-- highBeam
-- lowBeam
-- positionLamp
-- turnLndicatorLeft
-- turnLndicatorRight
-
----
-
-## Nota v1.2.1: campos importados por comparación con otro proyecto, retirados en v1.2.1b10
-
-Los 6 campos importados de `ha-deepal-alternative` (otro proyecto open-source
-que ataca el mismo backend) se han retirado tras confirmar que el S05 no los
-reporta:
-
-- **Kilometraje de ayer / desde el encendido**: el propio código de
-  `ha-deepal-alternative` (`vehicle_model.py`) confirma que el S05 no manda
-  campos de kilometraje por MQTT, y excluye explícitamente esos dos sensores
-  para el S05 en su `sensor.py`.
-- **Temperatura por neumático**: probado contra el vehículo real, las 4
-  entidades mostraban siempre "Desconocido".
-
-Ver `docs/telemetry-parameters.md` para el detalle completo.
-
-Ese mismo proyecto tenía además el control remoto del vehículo documentado
-(puertas, ventanas, maletero, clima, luces...), incluyendo el mecanismo de
-firma de comandos (RSA-SHA256 con la misma clave privada del login) y el
-PIN de control para acciones físicas. La parte sin PIN (clima, luces,
-claxon) ya está implementada — ver la sección "Remote Control" más arriba y
-`docs/remote-control.md`. Puertas/ventanas/maletero (con PIN) siguen siendo
-el siguiente gran bloque de trabajo pendiente de diseño.
+# Backend de Deepal España
+
+Endpoints de la nube oficial que usa la integración. Obtenidos analizando el
+tráfico de la app oficial Deepal para España.
+
+## Servidores
+
+| Nombre en el código | URL | Uso |
+| --- | --- | --- |
+| `BASE_URL` | `https://m.iov.changanauto.com.de` | Inicio de sesión, vehículos y comandos |
+| `CA_BASE_URL` | `https://ca-m.iov.changanauto.com.de` | Configuración y autenticación MQTT |
+
+## Inicio de sesión
+
+| Paso | Endpoint |
+| --- | --- |
+| Pedir código por SMS | `/intl-app-gw/intl-app-auth/api/login/send-auth-code` |
+| Pedir código por correo | `/intl-app-gw/intl-app-auth/api/login/email-send-auth-code` |
+| Entrar con código SMS | `/intl-app-gw/intl-app-auth/api/login/login-by-mobile-code` |
+| Entrar con código de correo | `/intl-app-gw/intl-app-auth/api/login/email-code-in` |
+| Renovar la sesión | `/intl-app-gw/intl-app-auth/api/auth/refresh-token` |
+
+Ambos inicios de sesión devuelven `token`, `refreshToken`, `cacToken`, `userId`,
+`caUserId` y `cacUserId`.
+
+## Vehículos
+
+| Paso | Endpoint |
+| --- | --- |
+| Listar vehículos de la cuenta | `/intl-app-gw/intl-app-user/api/car/vehicles` |
+| Estado del vehículo bajo demanda (asientos, clima, estado general) | `/intl-app-gw/intl-app-car-condition/api/vehicle/condition` |
+
+## MQTT (telemetría)
+
+| Paso | Endpoint | Notas |
+| --- | --- | --- |
+| Configuración de conexión | `/user-apigw/vot-connect-conf-center/api/device/getConnConf` | Cabecera `X-Tsp-User-Token` = `access_token` (**no** el `cacToken`) |
+| Token de autenticación MQTT | `/user-apigw/vot-connect-auth-center/api/auth/getAuthTokenByUserId` | Requiere `userId` |
+
+El listado de datos que llegan por MQTT y cómo se interpretan está en
+[`telemetry-parameters.md`](telemetry-parameters.md).
+
+## Control remoto
+
+Todos bajo `/intl-app-gw/intl-app-car-control/api/`. El protocolo completo (número
+de serie cifrado, firma RSA-SHA256, confirmación del resultado) está en
+[`remote-control.md`](remote-control.md).
+
+| Endpoint | Uso | ¿Firmado? |
+| --- | --- | --- |
+| `serial-no/get` | Número de serie cifrado para firmar | — |
+| `control/air-conditioner` | Climatización | Sí |
+| `control/flashing-honking` | Luces / claxon | Sí |
+| `control/condition-inquiry` | Pedir datos frescos al coche | Sí |
+| `control/seats/heat` · `control/seats/wind` | Asientos | Sí |
+| `control/steering-wheel/heat` | Volante calefactado | Sí |
+| `control/defrost` | Desempañado | Sí |
+| `control/control-result` | ¿El coche aceptó el comando? | No |
+
+Puertas, ventanillas y maletero necesitan además el PIN de control; no están
+implementados.
+
+## Comprobado
+
+| Qué | Resultado |
+| --- | --- |
+| Inicio de sesión por SMS (+34) y por correo | ✅ |
+| Listado de vehículos | ✅ |
+| Configuración y autenticación MQTT | ✅ |
+| `X-Tsp-User-Token` = `access_token` | ✅ |
+| `X-Tsp-User-Token` = `cacToken` | ❌ no funciona |
+| Comandos sin PIN: luces, claxon, climatización | ✅ |

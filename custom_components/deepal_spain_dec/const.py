@@ -29,7 +29,7 @@ BASE_URL = "https://m.iov.changanauto.com.de"
 CA_BASE_URL = "https://ca-m.iov.changanauto.com.de"
 
 # Remote-control endpoints (reverse-engineered by cross-checking with
-# another open-source Deepal integration; not yet confirmed by us
+# an independent reference implementation; not yet confirmed by us
 # against a real vehicle — see docs/remote-control.md). All of these
 # require a signed payload (see crypto.sign_command_payload) but none
 # of them need the control PIN ("rcToken") — that's only required for
@@ -48,15 +48,15 @@ CONTROL_FLASHING_HONKING = (
 )
 # Unlike the other control/* endpoints, this one is a plain
 # authenticated POST — no serial number, no RSA signature. Confirmed
-# by reading ha-deepal-alternative's own client code directly.
+# by reading an independent reference client directly.
 CONTROL_RESULT = (
     "/intl-app-gw/intl-app-car-control/api/control/control-result"
 )
 
 # The following four, added in v1.3.1b4, were reverse-engineered by
-# reading ha-deepal-alternative's real client code
-# (deepal_sdk/deepal/intl.py, endpoints.py) rather than cross-checking
-# against captured MQTT payloads like the read-only fields — none of
+# reading an independent reference client's code rather than
+# cross-checking against captured MQTT payloads like the read-only
+# fields — none of
 # these have been sent to the real vehicle yet, see
 # docs/remote-control.md.
 CONTROL_SEATS_HEAT = (
@@ -74,7 +74,7 @@ CONTROL_DEFROST = (
 
 # Different gateway (car-condition, not car-control): a richer,
 # on-demand snapshot of the vehicle used by the official app itself.
-# Confirmed by reading another open-source Deepal integration's code:
+# Confirmed by reading an independent reference implementation:
 # for the S05, a handful of MQTT fields (seat heat/vent, steering
 # wheel heat, front defrost) are unreliable — sometimes sentinel
 # values, sometimes simply not kept in sync with what the app shows

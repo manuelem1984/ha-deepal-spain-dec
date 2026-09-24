@@ -39,9 +39,9 @@ class DeepalCommandNotReady(DeepalApiError):
 # Deepal error codes observed in the wild that mean the session token is
 # no longer valid, beyond the generic "AUTH" / "401" patterns already
 # checked in is_auth_error(). The three added alongside APP_1_1_02_004/
-# 005 come from cross-checking with another open-source Deepal
-# integration (ha-deepal-alternative) that documents them as gateway
-# kick-out codes; not yet each individually observed by us.
+# 005 come from cross-checking with an independent reference
+# implementation that documents them as gateway kick-out codes; not
+# yet each individually observed by us.
 KNOWN_AUTH_ERROR_CODES = frozenset(
     {
         "APP_1_1_02_003",

@@ -2,8 +2,8 @@
 
 First cut of remote control added in v1.3.1b4, alongside number.py.
 No PIN required for either of these — see docs/remote-control.md.
-Front defrost is exposed here even though ha-deepal-alternative's own
-client has the matching method but never wires it to any entity.
+Front defrost is exposed here as an entity even though the command
+is rarely wired up in other implementations for this backend.
 """
 
 from __future__ import annotations

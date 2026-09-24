@@ -1,304 +1,176 @@
-# Control remoto del vehículo
+# Control remoto
 
-Inventario de los comandos de control remoto, su estado de implementación y
-las comprobaciones pendientes. Sigue el mismo formato que
-[`telemetry-parameters.md`](telemetry-parameters.md), pero para el sentido
-contrario: escribir en el coche, no leerlo.
+Comandos que la integración puede enviar al coche, cómo funcionan por dentro y
+qué falta por hacer. Para los datos que se **leen** del coche ver
+[`telemetry-parameters.md`](telemetry-parameters.md).
 
-- **Vehículo de referencia:** Deepal S05 (VIN `LS6CME0P6TK106840`)
-- **Origen de esta información:** el protocolo completo (endpoints, cifrado,
-  firma) se reconstruyó comparando con otros proyectos open-source que
-  atacan el mismo backend, cuyos endpoints e infraestructura coinciden con
-  los nuestros. Luces, claxon y climatización ya están **confirmados
-  funcionando contra el vehículo real** — ver la sección 2.
-- **Alcance de esta versión:** solo comandos que **no** requieren el PIN de
-  control. Puertas, ventanas y maletero quedan para una fase posterior — ver
-  la sección 3.
+- **Vehículo de referencia:** Deepal S05 España.
+- **Alcance actual:** solo comandos que **no** necesitan el PIN de control remoto.
+  Puertas, ventanillas y maletero quedan para una fase posterior (sección 5).
+- **Origen:** el protocolo (endpoints, cifrado y firma) se reconstruyó por
+  ingeniería inversa de la app oficial, contrastado con material de referencia
+  sobre el mismo backend. Luces, claxon y climatización están confirmados con el
+  coche real.
 
-## 0. Actualización optimista y reintento (desde v1.2.1b6)
+## Leyenda
 
-`coordinator.async_send_command()` acepta un parámetro `optimistic_update`
-(un diccionario `{campo: valor_esperado}`) que, tras un comando correcto:
+| Símbolo | Significado |
+| --- | --- |
+| ✅ | Comprobado con el coche real |
+| ⚠️ | Implementado, pendiente de comprobar con el coche real |
+| ❌ | No implementado |
 
-1. Actualiza la entidad **al momento** con el valor esperado (sin esperar a
-   ningún poll) — así la UI responde de inmediato en vez de quedarse en el
-   valor viejo varios segundos.
-2. Avisa al coche (`control_condition_inquiry`) y lanza hasta 3 reintentos
-   de refresco, separados 2 segundos, hasta que un dato real confirme el
-   cambio.
-3. Si ninguno de los 3 reintentos lo confirma, el valor optimista se queda
-   puesto hasta el siguiente ciclo normal de 5 minutos — que lo corregirá
-   en cualquier caso, sea confirmando o desmintiendo el cambio.
+---
 
-**Limitación conocida:** no hay marcha atrás automática si el comando falla
-en silencio en el lado del servidor (es decir, si Deepal acepta el comando
-pero el coche nunca llega a aplicarlo). El valor optimista se mostraría como
-correcto durante un rato hasta que el siguiente poll real lo corrija. No se
-ha considerado necesario para este primer alcance (climatización, luces,
-claxon), pero habrá que revisarlo antes de dar el salto a comandos con PIN
-(puertas/ventanas/maletero), donde un estado equivocado importa más.
+## 1. Comandos disponibles
 
-## 0.1. Renovación silenciosa de sesión en los comandos (desde v1.2.1b8)
+| Comando | Entidad | Endpoint | Estado |
+| --- | --- | --- | --- |
+| Parpadear luces | `button.…_parpadear_luces` | `control/flashing-honking` (`type=1`) | ✅ |
+| Tocar el claxon | `button.…_tocar_el_claxon` | `control/flashing-honking` (`type=2`) | ✅ |
+| Luces y claxon a la vez | `button.…_luces_y_claxon_a_la_vez` | `control/flashing-honking` (`type=3`) | ⚠️ |
+| Climatización: encender/apagar y temperatura | `climate.…_climatizacion` | `control/air-conditioner` | ✅ (comparado con la app oficial) |
+| Calefacción asiento conductor / acompañante (0-3) | `number.…_calefaccion_asiento_*` | `control/seats/heat` | ⚠️ |
+| Ventilación asiento conductor / acompañante (0-3) | `number.…_ventilacion_asiento_*` | `control/seats/wind` | ⚠️ |
+| Volante calefactado (on/off) | `switch.…_volante_calefactado` | `control/steering-wheel/heat` | ⚠️ |
+| Desempañado delantero (on/off) | `switch.…_desempanado_delantero` | `control/defrost` | ⚠️ |
+| Pedir datos frescos al coche | botón *Actualizar datos del vehículo* y uso interno tras cada comando | `control/condition-inquiry` | ✅ |
 
-**Hallazgo real en pruebas (2026-09-2x):** el claxon falló la primera vez
-con `APP_1_1_02_004` (sesión caducada), y funcionó justo después de pulsar
-"Actualizar datos del vehículo". La causa: el poll normal de telemetría ya
-sabía renovar la sesión sola en silencio (desde la v1.1.0b6), pero los
-comandos de control remoto no pasaban por ese mismo mecanismo — si el token
-estaba caducado, fallaban directamente pidiendo reautenticar a mano.
+Todos los endpoints cuelgan de `/intl-app-gw/intl-app-car-control/api/`.
 
-Ahora `coordinator._send_command_with_session_retry()` hace lo mismo que ya
-hacía el poll: si el comando falla por sesión caducada, intenta renovarla en
-silencio con el `refresh_token` guardado y **reintenta el mismo comando una
-vez** antes de rendirse. Esto obligó además a cambiar cómo se pasa el
-comando a `async_send_command()`: antes se le daba la corrutina ya creada
-(`self.api.control_x(...)`), pero una corrutina **no se puede volver a
-esperar una segunda vez** en Python — hacía falta pasar una función que la
-cree de nuevo cada vez (`lambda: self.api.control_x(...)`) para poder
-reintentar.
+### Detalles de cada payload
 
-**Confirmado tras el arreglo:** parpadeo de luces, claxon **y climatización**
-funcionan correctamente, comparado además contra la app oficial Changan. El
-fallo original del climatizador (`APP_1_1_02_004`) era, en efecto, sesión
-caducada — no un problema del payload de `control_air_conditioner`.
+- **Climatización:** `targetTemp` va en **décimas de grado** (`22.5 °C` → `225`),
+  al contrario que la lectura, que llega en grados. `windMode` está fijo a `1` y
+  `runTime` a `30` (minutos, presumiblemente); no se ha investigado qué otros
+  valores aceptan.
+- **Luces/claxon:** `type` = `0` apagar, `1` luces, `2` claxon, `3` ambos.
+- **Asientos:** conductor = `masterSwitch`/`masterLevel`, acompañante =
+  `copilotSwitch`/`copilotLevel`, nivel 0-3. Para **apagar** se manda
+  `switch: 0` **sin** el campo de nivel: un nivel `0` explícito lo rechaza el
+  servidor.
+- **Volante calefactado:** `{"open": true|false}`.
+- **Desempañado:** `{"enabled": true|false}`.
 
-## 0.2. Confirmación real del comando y bloqueo de solapamiento (desde v1.2.1b10)
+---
 
-Comparando a fondo con `ha-deepal-alternative` (ver su
-`coordinator.py`/`intl.py` reales), se encontraron dos mejoras de robustez
-que ellos ya tenían y nosotros no:
+## 2. Cómo se envía un comando
 
-**1. Comprobar si el vehículo aceptó el comando de verdad.** Hasta ahora,
-tener un `commandId` de vuelta solo significa que **los servidores de
-Deepal** aceptaron la petición HTTP — el propio **vehículo** puede rechazarla
-después, de forma asíncrona (por ejemplo, si está dormido u ocupado). El
-proyecto de referencia consulta un endpoint aparte
-(`control/control-result`) tras cada comando para saberlo con certeza; su
-código de solución de problemas dice literalmente: *"the car sometimes
-refuses every remote command until it has been driven for a few minutes"*.
+1. **Número de serie cifrado:** `GET serial-no/get` (`api.get_serial_number()`).
+   El servidor lo devuelve cifrado con nuestra clave pública de login.
+2. **Descifrado** con la clave privada RSA generada al iniciar sesión
+   (`CONF_PRIVATE_KEY`) — `crypto.decrypt_with_private_key()`.
+3. **Payload:** los datos del comando más `seriralNo` (sic, errata del fabricante)
+   y `vehicleId`.
+4. **Firma:** se ordenan alfabéticamente las claves (sin `sign`, `class` ni
+   `command`), se unen como `clave=valor&clave=valor…` (booleanos en minúscula,
+   `None` como `"null"`) y se firma con **RSA-SHA256 (PKCS#1 v1.5)**. La firma en
+   base64 va en el campo `sign` — `crypto.sign_command_payload()`.
+5. **Envío** por POST a la pasarela principal (`BASE_URL`). La respuesta trae un
+   `commandId`.
 
-Ahora `coordinator._async_confirm_command_accepted()` hace lo mismo:
+> Si un comando falla con `DeepalCommandNotReady`, reautentica la integración una
+> vez: las instalaciones antiguas no tenían guardada la clave privada necesaria
+> para firmar.
 
-- Llama a `api.get_command_result(vehicle_id, command_id)` — un `POST` **sin
-  firmar** (a diferencia de los demás comandos, no necesita el número de
-  serie ni la firma RSA — confirmado leyendo su código directamente).
-- Clasifica la respuesta por su campo `resultCode`, con la misma tabla que
-  usa el proyecto de referencia:
+---
 
-  | `resultCode` | Estado |
-  | --- | --- |
-  | `0`, `1201` | Éxito |
-  | `1015` | Ya estaba hecho |
-  | `-1`, `-2` | Fallo |
-  | `-100` | Pendiente |
-  | (ausente) | Pendiente |
-  | cualquier otro | Fallo (por precaución, no se asume éxito) |
+## 3. Qué pasa después de enviar el comando
 
-- Si el resultado es un fallo, lanza un error claro al usuario en vez de
-  dejar que la actualización optimista se quede "colgada" sin explicación —
-  y si el mensaje de error contiene `TBOX_` (el patrón que usa el proyecto
-  de referencia para "el coche no aceptó el comando"), añade la pista de que
-  puede necesitar haberse usado hace poco.
-- Si tras 15 segundos sigue sin confirmar ni fallar, se continúa igualmente
-  (no bloquea el comando indefinidamente) — el resto del mecanismo de
-  actualización optimista (sección 0) sigue siendo el respaldo para ese
-  caso.
+Todo esto vive en `coordinator.async_send_command()`.
 
-**2. No solapar comandos que comparten estado.** Si se pulsan dos botones
-seguidos (por ejemplo, climatización y calefacción de asiento casi a la
-vez), antes se enviaban los dos comandos en paralelo, con el riesgo de que
-sus actualizaciones optimistas se pisaran entre sí.
+### Renovación silenciosa de la sesión
 
-**Verificado sin coche real** (necesita `aiohttp`/Home Assistant, que no
-están disponibles en el entorno de desarrollo): con simulaciones a mano de
-la función de clasificación (10 casos, incluidos códigos desconocidos y no
-numéricos), del bucle de confirmación (6 escenarios: éxito inmediato, "ya
-hecho", fallo genérico, fallo `TBOX_` con la pista añadida, pendiente varias
-veces antes de confirmar, y pendiente hasta agotar el tiempo).
+Si el comando falla por sesión caducada (`APP_1_1_02_004`), se renueva la sesión
+con el `refresh_token` guardado y se **reintenta una vez**. Por eso los comandos se
+pasan como función (`lambda: self.api.control_x(...)`) y no como corrutina ya
+creada: una corrutina no se puede esperar dos veces.
 
-## 0.3. Cola de comandos con `asyncio.Lock` (desde v1.3.1b4)
+### Confirmación de que el coche lo aceptó
 
-La primera versión del punto 2 de arriba usaba una bandera manual
-(`_command_in_progress`) que **rechazaba** el segundo comando al instante
-con un error visible — molesto si simplemente no habías esperado medio
-minuto entre una acción y otra, ya que un comando puede tardar bastante
-(hasta ~15s comprobando si el coche lo aceptó, más hasta 6s reintentando
-confirmar el cambio).
+Tener un `commandId` solo significa que **el servidor** aceptó la petición; el
+**coche** puede rechazarla después (por ejemplo, si está dormido). Durante hasta
+15 s se consulta `control/control-result` (POST sin firma) y se clasifica su
+`resultCode`:
 
-Ahora es un `asyncio.Lock()` de verdad:
+| `resultCode` | Resultado |
+| --- | --- |
+| `0`, `1201` | Éxito |
+| `1015` | Ya estaba hecho |
+| `-1`, `-2` | Fallo |
+| `-100` o ausente | Pendiente (se sigue esperando) |
+| cualquier otro | Fallo (por precaución) |
 
-- Los comandos que **comparten estado** (los que usan `optimistic_update` —
-  climatización, y desde esta versión también asientos, volante y
-  desempañado) se ponen **en cola** y esperan su turno, hasta 30 segundos,
-  en vez de fallar al instante. Si de verdad se supera ese tiempo (algo se
-  ha quedado atascado), ahí sí se avisa con un error claro.
-- Los comandos que **no** tocan ningún dato compartido (parpadear luces,
-  claxon, luces+claxon a la vez) **nunca esperan a nada** — se ejecutan de
-  inmediato aunque haya otro comando en curso, porque no hay ningún riesgo
-  real de que se pisen.
+Si falla, se muestra un error claro. Si el mensaje contiene `TBOX_`, se añade la
+pista de que el coche a veces rechaza comandos hasta que se ha usado un rato. Si a
+los 15 s sigue pendiente, se continúa sin bloquear.
 
-**Verificado con simulaciones** (no con el coche real): confirmado que un
-comando sin `optimistic_update` (claxon) no espera a uno que sí lo tiene
-(climatización) en curso; que dos comandos que sí comparten estado se
-ejecutan en cola, uno tras otro, nunca a la vez; y que si el lock queda
-retenido más de 30 segundos, se lanza un error claro en vez de esperar para
-siempre.
+### Actualización optimista
 
-## 0.4. Lectura fiable de asientos y volante (desde v1.3.1b6)
+Los comandos que cambian un estado visible pasan `optimistic_update`
+(`{campo: valor_esperado}`):
 
-**Hallazgo real, comparando dos volcados de diagnósticos con unos minutos de
-diferencia**: con el asiento del conductor apagado de verdad (confirmado en
-la app oficial) entre una captura y la otra, el campo MQTT
-`driverSeatAirStatus` seguía marcando el mismo valor que antes de apagarlo.
-No es un problema de escala ni de nombre de campo — **estos 4 campos del
-MQTT no reflejan el estado actual del asiento/volante**, solo parecen guardar
-el último nivel que se configuró alguna vez, encendido o no. Comparando con
-otro proyecto open-source que ataca el mismo backend, confirmamos que ellos
-ya se habían encontrado con esto mismo.
+1. La entidad cambia **al momento** al valor esperado.
+2. Se pide al coche que reporte (`condition-inquiry`) y se reintenta la lectura
+   hasta 3 veces, cada 2 s, hasta confirmar el cambio.
+3. Si no se confirma, el valor optimista se mantiene hasta la siguiente lectura
+   normal (5 min), que lo confirma o lo corrige.
 
-**La solución no es desconfiar del dato y ya está — es pedirlo por otra vía
-que sí es fiable.** Hay un segundo endpoint REST, en una pasarela distinta a
-la de los comandos de control, que da una foto más completa del vehículo
-bajo demanda — el mismo tipo de consulta que hace la app oficial. Su
-respuesta viene organizada por categorías (asientos, clima, estado general),
-con nombres de campo totalmente distintos a los del MQTT:
+**Limitación:** si el servidor acepta el comando pero el coche no lo aplica, el
+valor optimista puede verse un rato hasta la siguiente lectura. Habrá que revisarlo
+antes de añadir puertas y maletero, donde un estado equivocado importa más.
 
-| Función | Campo MQTT (no fiable) | Campo de este endpoint |
+### Cola de comandos
+
+- Los comandos con `optimistic_update` (clima, asientos, volante, desempañado)
+  **esperan su turno** con un `asyncio.Lock` (máximo 30 s) para que sus
+  actualizaciones no se pisen.
+- Luces, claxon y luces+claxon **no esperan** a nada: no tocan ningún estado.
+
+---
+
+## 4. Lectura fiable de asientos y volante
+
+El MQTT no refleja el estado real de la calefacción/ventilación de asientos, el
+volante ni el desempañado: guarda el último nivel configurado, esté encendido o no.
+Se comprobó con dos capturas reales, apagando el asiento entre ambas.
+
+Por eso, tras cada lectura MQTT, `coordinator._async_overlay_condition()` pide un
+endpoint REST de "estado del vehículo" (el mismo que usa la app oficial) y
+**sustituye solo esos 6 datos**:
+
+| Dato | MQTT (reserva) | REST (el que se usa) |
 | --- | --- | --- |
-| Calefacción asiento | `driverSeatHeatStatus` (0-6, hay que dividir entre 2) | `seat.leftFront.heatStatus` (0-3 directo) |
+| Calefacción asiento | `driverSeatHeatStatus` (0-6 ÷ 2) | `seat.leftFront.heatStatus` (0-3) |
 | Ventilación asiento | `driverSeatAirStatus` | `seat.leftFront.ventStatus` |
 | Volante calefactado | `steeringWheelHeating` | `vehicleStatus.steeringWheelHeater` |
 | Desempañado | `frontDefrostStatus` | `hvac.defrostStatus` |
 
-`coordinator._async_overlay_condition()` pide este endpoint (solo las 3
-categorías que necesitamos: asientos, clima, estado general — no hace falta
-pedir el resto, ya lo tenemos por MQTT) justo después de cada sondeo MQTT
-normal, y **sustituye** estos 6 campos con lo que diga, dejando el resto de
-la telemetría (batería, puertas, etc.) exactamente igual. Si la llamada
-falla por lo que sea, no rompe nada — simplemente se queda con el valor del
-MQTT (ya sabido poco fiable) hasta el siguiente sondeo.
+(El acompañante usa `rightFront`.) Si la llamada falla, se queda el valor del MQTT
+hasta la siguiente lectura. Justo después de un comando, esta lectura puede llegar
+antes de que el coche aplique el cambio y revertirlo unos segundos.
 
-**Limitación conocida, aceptada por ahora**: si acabas de mandar un comando
-de asiento/volante desde Home Assistant, es posible que el sondeo
-inmediatamente posterior (parte del mecanismo de confirmación de la sección
-0) pida este endpoint **antes** de que el coche haya terminado de aplicar el
-cambio, y lo revierta durante unos segundos hasta que el siguiente sondeo lo
-confirme — el mismo tipo de limitación que ya teníamos documentada para la
-actualización optimista en general, no un problema nuevo. No se compara
-ninguna marca de tiempo entre el MQTT y este endpoint todavía (el proyecto
-de referencia sí lo hace); queda anotado en `docs/roadmap.md` como posible
-mejora futura.
+---
 
-**Bonus encontrado de camino**: este mismo endpoint también trae temperatura
-exterior y temperatura por neumático — los dos campos que retiramos porque
-el MQTT nunca los manda (v1.2.0 y v1.2.1b10). No se han vuelto a añadir
-todavía; queda anotado como posible tarea futura.
+## 5. Pendiente: comandos con PIN
 
-**Verificado sin coche real**: 13 casos de parseo del JSON anidado de este
-endpoint (respuesta completa, campos individuales, respuesta vacía,
-categorías mal formadas que no deben reventar, niveles negativos tratados
-como 0), y 7 casos más simulando el flujo completo (sustitución correcta de
-los 6 campos sin tocar el resto de la telemetría, sin mutar el objeto
-original, comportamiento cuando la API falla o devuelve una respuesta
-vacía).
+No implementado. Requiere guardar el PIN de control en las opciones de la
+integración y canjearlo en cada comando
+(`security-code/get-status` → `security-code/check-code` → `rcToken`).
 
-## 1. Cómo funciona el protocolo de comandos
+| Comando | Endpoint | Estado |
+| --- | --- | --- |
+| Bloquear / desbloquear puertas | `control/doors` | ❌ |
+| Subir / bajar ventanillas | `control/windows` | ❌ |
+| Abrir / cerrar maletero | `control/trunk` | ❌ |
 
-Cada comando firmado sigue estos pasos:
+Recomendación para cuando se implemente: crear el PIN con la **misma cuenta** que
+usa Home Assistant (la secundaria). Para ello, en la app oficial, con esa cuenta,
+intenta bajar una ventanilla: la app pedirá crear el PIN.
 
-1. **Pedir el número de serie cifrado del vehículo** (`GET serial-no/get`,
-   ahora `api.get_serial_number()`). El servidor lo devuelve cifrado con
-   nuestra propia clave pública de login.
-2. **Descifrarlo** con la clave privada RSA que ya generamos en el login
-   (`CONF_PRIVATE_KEY`, la misma que se usa para el intercambio de claves
-   inicial) — `crypto.decrypt_with_private_key()`.
-3. **Construir el payload** del comando concreto (p. ej.
-   `{"command": "air", "enabled": true, "targetTemp": 220, ...}`) y añadirle
-   `seriralNo` (sic — errata del propio fabricante, no nuestra) y
-   `vehicleId`.
-4. **Firmarlo**: se ordenan alfabéticamente las claves del payload
-   (excluyendo `sign`, `class` y `command`), se concatenan como
-   `clave=valor&clave=valor...` (booleanos en minúscula, `None` como la
-   cadena `"null"`), y se firma ese texto con **RSA-SHA256 (PKCS#1 v1.5)**
-   usando la misma clave privada. La firma en base64 se añade al payload
-   como campo `sign` — `crypto.sign_command_payload()`.
-5. **Enviarlo** por POST a la pasarela principal (`BASE_URL`, no la de CA) y
-   leer el `commandId` de la respuesta.
+## 6. Pruebas pendientes con el coche real
 
-Ninguno de los comandos de esta versión necesita el paso adicional del PIN
-de control (que canjea un PIN cifrado por un `rcToken` de corta duración) —
-eso solo hace falta para puertas, ventanas y maletero.
-
-## 2. Comandos implementados
-
-| Comando | Entidad HA | Endpoint | ¿PIN? | Estado |
-| --- | --- | --- | --- | --- |
-| Parpadear luces | `button.parpadear_luces` | `control/flashing-honking` (`type=1`) | No | ✅ Confirmado funcionando (2026-09-2x) |
-| Tocar el claxon | `button.tocar_el_claxon` | `control/flashing-honking` (`type=2`) | No | ✅ Confirmado funcionando (2026-09-2x), tras el arreglo de renovación de sesión en v1.2.1b8 |
-| Encender/apagar climatización + temperatura de consigna | `climate.climatizacion` | `control/air-conditioner` | No | ✅ Confirmado funcionando (2026-09-2x), comparado contra la app oficial Changan. El fallo inicial (`APP_1_1_02_004`) era sesión caducada, arreglado en v1.2.1b8 |
-| Avisar al coche para que reporte datos frescos | (usado internamente tras cada comando, y por el botón "Actualizar datos del vehículo") | `control/condition-inquiry` | No | ✅ Confirmado funcionando (es lo que arregla el token caducado al pulsar "Actualizar") |
-| Luces y claxon a la vez | `button.luces_y_claxon_a_la_vez` | `control/flashing-honking` (`type=3`) | No | ⚠️ Sin probar contra el vehículo real (añadido en v1.3.1b3) |
-| Calefacción asiento conductor (nivel 0-3) | `number.calefaccion_asiento_conductor` | `control/seats/heat` | No | ⚠️ Sin probar (añadido en v1.3.1b4) |
-| Calefacción asiento acompañante (nivel 0-3) | `number.calefaccion_asiento_acompanante` | `control/seats/heat` | No | ⚠️ Sin probar (añadido en v1.3.1b4) |
-| Ventilación asiento conductor (nivel 0-3) | `number.ventilacion_asiento_conductor` | `control/seats/wind` | No | ⚠️ Sin probar (añadido en v1.3.1b4) |
-| Ventilación asiento acompañante (nivel 0-3) | `number.ventilacion_asiento_acompanante` | `control/seats/wind` | No | ⚠️ Sin probar (añadido en v1.3.1b4) |
-| Volante calefactado (on/off) | `switch.volante_calefactado` | `control/steering-wheel/heat` | No | ⚠️ Sin probar (añadido en v1.3.1b4) |
-| Desempañado delantero (on/off) | `switch.desempanado_delantero` | `control/defrost` | No | ⚠️ Sin probar (añadido en v1.3.1b4). `ha-deepal-alternative` tiene el método en su cliente pero nunca lo conectó a ninguna entidad — somos los primeros en exponerlo |
-
-### Detalles pendientes de confirmar
-
-- **`targetTemp`**: el payload del comando espera **décimas de grado**
-  (`22.5°C` → `225`), a diferencia del campo de telemetría
-  `airConditioningSetTemperature`, que ya confirmamos que llega en grados
-  directos por MQTT. Son formatos distintos para lectura y escritura — el
-  `* 10` parece correcto (el climatizador ya confirmado funcionando lo usa),
-  pero no se ha comprobado explícitamente que la temperatura mostrada en la
-  app coincida exactamente con la pedida desde Home Assistant grado a
-  grado — sería el último detalle fino a confirmar.
-- **`windMode`**: fijo a `1` de momento (valor por defecto del proyecto de
-  referencia). No se ha investigado qué otros valores acepta ni qué
-  representan.
-- **`runTime`**: fijo a `30` (minutos, presumiblemente). Sin confirmar.
-- Los cuatro valores de `type` en `flashing-honking` según el proyecto de
-  referencia: `0` = apagar, `1` = parpadear luces, `2` = claxon, `3` = ambos
-  a la vez. Ya usamos los tres (`1`, `2` confirmados; `3` sin probar).
-- **Asientos (calefacción/ventilación)**: la escala 0-3 y el hecho de que
-  apagar un asiento debe mandar `switch: 0` **sin** el campo de nivel (nunca
-  un `0` explícito, el servidor lo rechazaría) están confirmados leyendo el
-  código de `ha-deepal-alternative`, pero no probados contra este vehículo.
-- **Volante calefactado y desempañado**: payloads simples (`{"open": bool}`
-  y `{"enabled": bool}` respectivamente), sin más parámetros que investigar,
-  pero tampoco probados todavía.
-
-## 3. Pendiente para una fase posterior (requiere PIN)
-
-No implementado todavía. Necesita además el flujo de canje de PIN
-(`security-code/get-status` → `security-code/check-code` → `rcToken`) y
-guardar el PIN en la configuración de la integración.
-
-| Comando | Endpoint |
-| --- | --- |
-| Bloquear/desbloquear puertas | `control/doors` |
-| Subir/bajar ventanas | `control/windows` |
-| Abrir/cerrar maletero | `control/trunk` |
-
-## 4. Plan de verificación con el vehículo real
-
-1. ~~**Parpadeo de luces**: pulsar el botón con el coche a la vista →
-   confirmar visualmente que parpadean las luces exteriores.~~ ✅ Hecho.
-2. ~~**Claxon**: igual, con el coche a la vista.~~ ✅ Hecho (tras el arreglo
-   de renovación de sesión).
-3. ~~**Climatización**: reautenticar la integración a mano una vez, y justo
-   después intentar cambiar la temperatura desde Home Assistant. Comparar
-   con la app oficial que se enciende y que la temperatura mostrada
-   coincide.~~ ✅ Hecho — confirmado funcionando, comparado contra la app
-   oficial Changan. Era sesión caducada, resuelto por el arreglo de
-   v1.2.1b8.
-4. Si algún comando falla con `DeepalCommandNotReady`, comprobar que la
-   integración se reautenticó al menos una vez después de que se añadiera
-   esta función (las entradas de configuración antiguas no tienen
-   `CONF_PRIVATE_KEY` disponible para firmar comandos hasta que se
-   reautentiquen).
-
-Actualizar este documento con el resultado de cada prueba, igual que se ha
-hecho en `telemetry-parameters.md`.
+- [ ] Luces y claxon a la vez.
+- [ ] Calefacción y ventilación de asientos (encender, cambiar nivel, apagar).
+- [ ] Volante calefactado y desempañado.
+- [ ] Temperatura de la climatización grado a grado frente a la app oficial.

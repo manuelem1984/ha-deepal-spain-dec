@@ -289,8 +289,8 @@ class DeepalApiClient:
     # ------------------------------------------------------------------
     # Remote commands (no control PIN required)
     #
-    # Reverse-engineered by cross-checking with another open-source
-    # Deepal integration targeting the same backend; not yet confirmed
+    # Reverse-engineered by cross-checking with an independent reference
+    # implementation targeting the same backend; not yet confirmed
     # by us against a real command sent to a vehicle. See
     # docs/remote-control.md before relying on this in production.
     # ------------------------------------------------------------------
@@ -421,8 +421,8 @@ class DeepalApiClient:
 
         Unlike the other control_* methods, this one is a plain
         authenticated POST — no serial number to fetch, no RSA
-        signature to compute — confirmed by reading
-        ha-deepal-alternative's own client code directly. See
+        signature to compute — confirmed by reading an independent
+        reference client directly. See
         coordinator._classify_command_result() for how the response
         (a "resultCode" field) is interpreted.
         """
@@ -443,8 +443,8 @@ class DeepalApiClient:
     ) -> dict[str, Any]:
         """Build a seat heat/vent command payload.
 
-        Confirmed by reading ha-deepal-alternative's own code
-        (tested by them against a real vehicle): turning a seat off
+        Confirmed by reading an independent reference implementation
+        (tested there against a real vehicle): turning a seat off
         must send switch: 0 *without* a level field — sending an
         explicit level of 0 is rejected by the server
         (COMMON_1_1_01_005). So a falsy level is omitted entirely
@@ -537,9 +537,9 @@ class DeepalApiClient:
     ) -> str:
         """Turn the front defrost on or off.
 
-        Cross-checked against another open-source Deepal integration,
-        whose client has this exact method but never wires it to a
-        Home Assistant entity — we do, as of v1.3.1b4.
+        Cross-checked against an independent reference client, which
+        has this exact method; exposed here as a Home Assistant entity
+        since v1.3.1b4.
         """
         return await self._signed_command(
             CONTROL_DEFROST,

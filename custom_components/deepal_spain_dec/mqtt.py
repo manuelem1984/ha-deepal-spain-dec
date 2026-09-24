@@ -35,18 +35,17 @@ KNOWN_SERVICE_CODES = {
     "THU_Service",
 }
 
-# Fields that already arrive from the vehicle (inside the known
-# service codes) but are not yet mapped into DeepalTelemetry.
-# Logged with their real values so the semantics (booleans, units,
-# scales) can be confirmed before wiring up new entities.
+# Fields whose raw values are worth seeing in the debug log: mostly
+# keys that already arrive from the vehicle (inside the known service
+# codes) but are not mapped into DeepalTelemetry yet, plus a few that
+# are mapped but whose semantics are still being confirmed (charge
+# connectors, seat/steering/defrost fallbacks). Logged with their real
+# values so booleans, units and scales can be checked before wiring up
+# (or changing) an entity.
 CANDIDATE_KEYS = (
     "acChargeGunConnectionState",
     "dcChargeGunConnectionState",
     "chargeCoverStatus",
-    "lfPressureWarning",
-    "rfPressureWarning",
-    "lrPressureWarning",
-    "rrPressureWarning",
     "driverSeatHeatStatus",
     "passengerSeatHeatStatus",
     "driverSeatAirStatus",
@@ -67,7 +66,6 @@ CANDIDATE_KEYS = (
     "absLightStatus",
     "airbagSystemStatus",
     "oilPressureLightStatus",
-    "powerStatusFeedBack",
 )
 
 

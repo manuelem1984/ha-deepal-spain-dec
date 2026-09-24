@@ -20,6 +20,7 @@ from .const import DOMAIN
 from .coordinator import DeepalSpainCoordinator
 from .entity import DeepalSpainEntity
 from .models import DeepalTelemetry
+from .telemetry import any_door_open, any_door_unlocked
 
 
 @dataclass(
@@ -126,6 +127,63 @@ BINARY_SENSOR_DESCRIPTIONS: tuple[
         value_fn=lambda data: data.trunk_open,
     ),
     DeepalBinarySensorDescription(
+        key="any_door_open",
+        translation_key="any_door_open",
+        name="Alguna puerta abierta",
+        device_class=BinarySensorDeviceClass.DOOR,
+        icon_on="mdi:car-door",
+        icon_off="mdi:car",
+        # Four doors + trunk; see telemetry.any_door_open().
+        value_fn=any_door_open,
+    ),
+    DeepalBinarySensorDescription(
+        key="front_left_window",
+        translation_key="front_left_window",
+        name="Ventanilla Delantera Izquierda",
+        device_class=BinarySensorDeviceClass.WINDOW,
+        icon_on="mdi:window-open-variant",
+        icon_off="mdi:window-closed-variant",
+        value_fn=lambda data: data.front_left_window_open,
+    ),
+    DeepalBinarySensorDescription(
+        key="front_right_window",
+        translation_key="front_right_window",
+        name="Ventanilla Delantera Derecha",
+        device_class=BinarySensorDeviceClass.WINDOW,
+        icon_on="mdi:window-open-variant",
+        icon_off="mdi:window-closed-variant",
+        value_fn=lambda data: data.front_right_window_open,
+    ),
+    DeepalBinarySensorDescription(
+        key="rear_left_window",
+        translation_key="rear_left_window",
+        name="Ventanilla Trasera Izquierda",
+        device_class=BinarySensorDeviceClass.WINDOW,
+        icon_on="mdi:window-open-variant",
+        icon_off="mdi:window-closed-variant",
+        value_fn=lambda data: data.rear_left_window_open,
+    ),
+    DeepalBinarySensorDescription(
+        key="rear_right_window",
+        translation_key="rear_right_window",
+        name="Ventanilla Trasera Derecha",
+        device_class=BinarySensorDeviceClass.WINDOW,
+        icon_on="mdi:window-open-variant",
+        icon_off="mdi:window-closed-variant",
+        value_fn=lambda data: data.rear_right_window_open,
+    ),
+    DeepalBinarySensorDescription(
+        key="central_locking",
+        translation_key="central_locking",
+        name="Cierre centralizado",
+        device_class=BinarySensorDeviceClass.LOCK,
+        # LOCK device class: on = unlocked, off = locked.
+        icon_on="mdi:lock-open-variant",
+        icon_off="mdi:lock",
+        # Either front lock open; see telemetry.any_door_unlocked().
+        value_fn=any_door_unlocked,
+    ),
+    DeepalBinarySensorDescription(
         key="driver_locked",
         translation_key="driver_locked",
         name="Puerta Delantera Izquierda Bloqueo",
@@ -142,6 +200,42 @@ BINARY_SENSOR_DESCRIPTIONS: tuple[
         icon_on="mdi:car-door-lock",
         icon_off="mdi:car-door-lock-open",
         value_fn=lambda data: data.passenger_locked,
+    ),
+    DeepalBinarySensorDescription(
+        key="left_front_tire_alarm",
+        translation_key="left_front_tire_alarm",
+        name="Alarma neumático delantero izquierdo",
+        device_class=BinarySensorDeviceClass.PROBLEM,
+        icon_on="mdi:car-tire-alert",
+        icon_off="mdi:tire",
+        value_fn=lambda data: data.left_front_tire_alarm,
+    ),
+    DeepalBinarySensorDescription(
+        key="right_front_tire_alarm",
+        translation_key="right_front_tire_alarm",
+        name="Alarma neumático delantero derecho",
+        device_class=BinarySensorDeviceClass.PROBLEM,
+        icon_on="mdi:car-tire-alert",
+        icon_off="mdi:tire",
+        value_fn=lambda data: data.right_front_tire_alarm,
+    ),
+    DeepalBinarySensorDescription(
+        key="left_rear_tire_alarm",
+        translation_key="left_rear_tire_alarm",
+        name="Alarma neumático trasero izquierdo",
+        device_class=BinarySensorDeviceClass.PROBLEM,
+        icon_on="mdi:car-tire-alert",
+        icon_off="mdi:tire",
+        value_fn=lambda data: data.left_rear_tire_alarm,
+    ),
+    DeepalBinarySensorDescription(
+        key="right_rear_tire_alarm",
+        translation_key="right_rear_tire_alarm",
+        name="Alarma neumático trasero derecho",
+        device_class=BinarySensorDeviceClass.PROBLEM,
+        icon_on="mdi:car-tire-alert",
+        icon_off="mdi:tire",
+        value_fn=lambda data: data.right_rear_tire_alarm,
     ),
     DeepalBinarySensorDescription(
         key="high_beam",

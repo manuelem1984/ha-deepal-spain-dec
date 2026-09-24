@@ -22,6 +22,7 @@ from homeassistant.const import (
     UnitOfTime,
 )
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import (
     AddEntitiesCallback,
 )
@@ -170,6 +171,26 @@ SENSOR_DESCRIPTIONS: tuple[
         value_fn=lambda data: data.charge_current,
     ),
     DeepalSensorDescription(
+        key="ac_charge_current",
+        translation_key="ac_charge_current",
+        name="Corriente de carga AC",
+        device_class=SensorDeviceClass.CURRENT,
+        native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:current-ac",
+        value_fn=lambda data: data.ac_charge_current,
+    ),
+    DeepalSensorDescription(
+        key="dc_charge_current",
+        translation_key="dc_charge_current",
+        name="Corriente de carga DC",
+        device_class=SensorDeviceClass.CURRENT,
+        native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:current-dc",
+        value_fn=lambda data: data.dc_charge_current,
+    ),
+    DeepalSensorDescription(
         key="remaining_charge_time",
         translation_key="remaining_charge_time",
         name="Tiempo de carga restante",
@@ -264,6 +285,18 @@ SENSOR_DESCRIPTIONS: tuple[
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda data: data.climate_target_temperature_c,
+    ),
+    # Raw integer code from `powerStatusFeedBack`. The meaning of each
+    # value (off / accessory / on / ready...) is not mapped yet, so it
+    # stays a plain diagnostic number instead of guessing labels. See
+    # docs/telemetry-parameters.md.
+    DeepalSensorDescription(
+        key="power_status",
+        translation_key="power_status",
+        name="Estado de alimentación",
+        icon="mdi:car-cog",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda data: data.power_status,
     ),
 )
 

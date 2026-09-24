@@ -22,6 +22,7 @@ MAPPED_KEYS: frozenset[str] = frozenset(
         "totalResidualMileage",
         # Vehicle
         "engineStatus",
+        "powerStatusFeedBack",
         "totalOdometer",
         "latestDate",
         "lastUpdatedAt",
@@ -43,6 +44,11 @@ MAPPED_KEYS: frozenset[str] = frozenset(
         "leftRearDoor",
         "rightRearDoor",
         "trunk",
+        # Windows
+        "diverWindow",
+        "passengerWindow",
+        "leftRearWindow",
+        "rightRearWindow",
         # Locks
         "driverDoorLock",
         "passengerDoorLock",
@@ -51,6 +57,10 @@ MAPPED_KEYS: frozenset[str] = frozenset(
         "rfTyrePressure",
         "lrTyrePressure",
         "rrTyrePressure",
+        "lfPressureWarning",
+        "rfPressureWarning",
+        "lrPressureWarning",
+        "rrPressureWarning",
         # Lights
         "highBeam",
         "lowBeam",
@@ -110,9 +120,8 @@ def as_seat_level(value: Any) -> int | None:
 
     Deepal's own API reports these in a 0-6 "gear" scale; the level
     shown in the app (and here) is that value divided by two. Scale
-    confirmed by reading ha-deepal-alternative's own MQTT parsing for
-    this vehicle class (mqtt.py's _seat_heat_level helper), not yet
-    confirmed against this specific vehicle.
+    cross-checked against an independent reference implementation for
+    this vehicle class, not yet confirmed against this specific vehicle.
     """
     parsed_value = as_int(value)
 
@@ -125,14 +134,14 @@ def as_seat_level(value: Any) -> int | None:
 def as_charge_connector_connected(value: Any) -> bool | None:
     """Return whether a charge connector state means a gun is plugged in.
 
-    Confirmed by cross-checking another open-source Deepal
-    integration's code and docstring: the raw value is *not* a plain
-    boolean — 0 **and** 1 both mean "not connected"; only 2 or higher
-    means connected (a charging AC gun was observed reporting 3).
-    They verified 0 specifically against a parked car with nothing
-    plugged in. A plain as_bool() would treat 1 as "connected", which
-    is wrong — confirmed by our own user seeing "Conector AC:
-    Enchufado" with the car genuinely unplugged (raw value 1).
+    The raw value is *not* a plain boolean — 0 **and** 1 both mean
+    "not connected"; only 2 or higher means connected (a charging AC
+    gun was observed reporting 3). A plain as_bool() would treat 1 as
+    "connected", which is wrong — confirmed on the real car, which
+    reported 1 while genuinely unplugged ("Conector AC: Enchufado"
+    was shown by mistake before this helper existed). The same
+    threshold is used by an independent reference implementation
+    that checked 0 against a parked, unplugged car.
     """
     parsed_value = as_int(value)
 
@@ -154,6 +163,51 @@ def first_value(
             return value
 
     return None
+
+
+def any_door_open(data: DeepalTelemetry) -> bool | None:
+    """Return whether any door or the trunk is open.
+
+    Aggregates the four doors plus the trunk (the hood is left out on
+    purpose: it is not a way into the cabin). True as soon as one of
+    them reports open; False only when at least one is known and none
+    is open; None when none of the five is known yet.
+    """
+    values = (
+        data.front_left_door,
+        data.front_right_door,
+        data.rear_left_door,
+        data.rear_right_door,
+        data.trunk_open,
+    )
+
+    if all(value is None for value in values):
+        return None
+
+    return any(value is True for value in values)
+
+
+def any_door_unlocked(data: DeepalTelemetry) -> bool | None:
+    """Return whether the car is unlocked (either front lock open).
+
+    Follows exactly the same convention as the existing per-door
+    "Bloqueo" sensors, so all three always agree: `driver_locked` /
+    `passenger_locked` hold the raw lock flag as a boolean (non-zero
+    raw value -> True), and a True `is_on` is shown by Home
+    Assistant's LOCK device class as "unlocked". Reference material
+    for this backend states that raw 0 means locked; that has not
+    been re-checked on the real car yet (see
+    docs/telemetry-parameters.md). The S05 reports only the two front
+    locks; the rear doors follow the central locking.
+
+    None when neither front lock is known yet.
+    """
+    values = (data.driver_locked, data.passenger_locked)
+
+    if all(value is None for value in values):
+        return None
+
+    return any(value is True for value in values)
 
 
 def parse_datetime(value: Any) -> datetime | None:
@@ -224,6 +278,7 @@ def parameters_to_telemetry(
         # Vehicle
         connected=True,
         engine_on=as_bool(parameters.get("engineStatus")),
+        power_status=as_int(parameters.get("powerStatusFeedBack")),
         mileage_km=as_float(parameters.get("totalOdometer")),
         last_update=parse_datetime(
             first_value(
@@ -241,6 +296,20 @@ def parameters_to_telemetry(
                 "BattACChrgInCurr",
                 "BattDCChrgInCurr",
                 "battACChrgInCurr",
+                "battDCChrgInCurr",
+            )
+        ),
+        ac_charge_current=as_float(
+            first_value(
+                parameters,
+                "BattACChrgInCurr",
+                "battACChrgInCurr",
+            )
+        ),
+        dc_charge_current=as_float(
+            first_value(
+                parameters,
+                "BattDCChrgInCurr",
                 "battDCChrgInCurr",
             )
         ),
@@ -271,6 +340,18 @@ def parameters_to_telemetry(
         rear_right_door=as_bool(parameters.get("rightRearDoor")),
         trunk_open=as_bool(parameters.get("trunk")),
 
+        # Windows
+        front_left_window_open=as_bool(parameters.get("diverWindow")),
+        front_right_window_open=as_bool(
+            parameters.get("passengerWindow")
+        ),
+        rear_left_window_open=as_bool(
+            parameters.get("leftRearWindow")
+        ),
+        rear_right_window_open=as_bool(
+            parameters.get("rightRearWindow")
+        ),
+
         # Locks
         driver_locked=as_bool(parameters.get("driverDoorLock")),
         passenger_locked=as_bool(
@@ -289,6 +370,18 @@ def parameters_to_telemetry(
         ),
         right_rear_tire_pressure=as_float(
             parameters.get("rrTyrePressure")
+        ),
+        left_front_tire_alarm=as_bool(
+            parameters.get("lfPressureWarning")
+        ),
+        right_front_tire_alarm=as_bool(
+            parameters.get("rfPressureWarning")
+        ),
+        left_rear_tire_alarm=as_bool(
+            parameters.get("lrPressureWarning")
+        ),
+        right_rear_tire_alarm=as_bool(
+            parameters.get("rrPressureWarning")
         ),
 
         # Lights
@@ -354,8 +447,8 @@ def parse_condition_overlay(raw: dict[str, Any]) -> dict[str, Any]:
     None.
 
     Field names and the fact that this endpoint is reliable where the
-    equivalent MQTT fields are not were cross-checked against another
-    open-source Deepal integration; not yet confirmed end-to-end
+    equivalent MQTT fields are not were cross-checked against an
+    independent reference implementation; not yet confirmed end-to-end
     against this vehicle (see docs/remote-control.md).
     """
     seat = raw.get("seat")

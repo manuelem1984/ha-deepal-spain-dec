@@ -25,9 +25,9 @@ from custom_components.deepal_spain_dec import api_errors
         ("401_UNAUTHORIZED", "unauthorized"),
         ("APP_1_1_02_004", "some message"),
         ("APP_1_1_02_005", "some message"),
-        # Added after cross-checking with another open-source Deepal
-        # integration (ha-deepal-alternative), which documents these
-        # as additional gateway kick-out codes; not yet each
+        # Added after cross-checking with an independent reference
+        # implementation, which documents these as additional gateway
+        # kick-out codes; not yet each
         # individually observed by us.
         ("APP_1_1_02_003", "some message"),
         ("APP_1_1_02_006", "some message"),

@@ -55,9 +55,9 @@ _COMMAND_RESULT_INTERVAL = 1.0
 # genuinely stuck.
 _COMMAND_LOCK_TIMEOUT = 30.0
 
-# resultCode -> status, exactly as classified by ha-deepal-alternative
-# (custom_components/deepal/deepal/models/command.py), confirmed by
-# reading its source directly. Any code not listed here is treated as
+# resultCode -> status, exactly as classified by an independent
+# reference implementation for this backend, confirmed by reading its
+# source directly. Any code not listed here is treated as
 # "failed" (fail closed) rather than silently assumed successful.
 _COMMAND_RESULT_CODES: dict[int, str] = {
     -100: "pending",
@@ -447,7 +447,7 @@ class DeepalSpainCoordinator(
 
         Having a commandId only means Deepal's servers accepted the
         HTTP request — the vehicle can still reject it afterwards
-        (observed by ha-deepal-alternative as "TBOX_..." result
+        (observed elsewhere as "TBOX_..." result
         messages, typically when the car is asleep or busy). This
         polls briefly and raises a clear HomeAssistantError if the
         vehicle reports a failure; if it neither confirms nor fails

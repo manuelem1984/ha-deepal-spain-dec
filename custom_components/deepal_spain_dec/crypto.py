@@ -161,9 +161,9 @@ def encrypt_mqtt_payload(
 # Remote commands
 # ------------------------------------------------------------------
 #
-# Reverse-engineered by cross-checking with another open-source Deepal
-# integration (ha-deepal-alternative), which targets the same backend
-# (its INTL_BASE_URL/INTL_CA_BASE_URL match ours exactly). Not yet
+# Reverse-engineered by cross-checking with an independent reference
+# implementation that targets the same backend (same base URLs as
+# ours). Not yet
 # confirmed by us against a real command sent to a vehicle — see
 # docs/remote-control.md.
 
