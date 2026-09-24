@@ -54,8 +54,8 @@ Claves ya mapeadas en `telemetry.py`. No requieren acción.
 | `ChrgSts` | Cargando | |
 | `BattACChrgInCurr` / `BattDCChrgInCurr` / `battACChrgInCurr` / `battDCChrgInCurr` | Corriente de carga | El fabricante envía ambas grafías |
 | `chargDeltMins` | Minutos restantes de carga | `8191` = valor nulo |
-| `acChargeGunConnectionState` | Conector AC | ✅ Confirmado 2026-09-24 con datos reales del propio usuario: `1` = manguera puesta, `0` = no puesta. Entidad "Conector AC", icono `mdi:ev-plug-type2` |
-| `dcChargeGunConnectionState` | Conector DC | ✅ Misma confirmación que la fila anterior. Entidad "Conector DC", icono `mdi:ev-plug-ccs2` |
+| `acChargeGunConnectionState` | Conector AC | ✅ Corregido 2026-09-24: **`0` y `1` significan "no conectado"; solo `2` o más cuenta como conectado** (una manguera AC cargando reporta `3`). Un `1` visto con el coche realmente desenchufado nos hizo detectar que un booleano simple estaba mal — confirmado además con el mismo umbral usado por otro proyecto open-source, que lo verificó contra un coche aparcado real. Entidad "Conector AC", icono `mdi:ev-plug-type2` |
+| `dcChargeGunConnectionState` | Conector DC | ✅ Mismo umbral que la fila anterior. Entidad "Conector DC", icono `mdi:ev-plug-ccs2` |
 | `vehicleTemperature` | Temperatura interior | |
 | `innerHumidity` | Humedad interior | Décimas de % (se divide entre 10) |
 | `driverDoor` / `passengerDoor` / `leftRearDoor` / `rightRearDoor` | Puerta Delantera/Trasera Izquierda/Derecha | ✅ Confirmado contra el vehículo real: son las puertas físicas (abrir una puerta cambia esta entidad). Renombradas de "Ventanilla..." a "Puerta..." en v1.2.1b7 — la hipótesis anterior de que estos campos eran ventanas era incorrecta |

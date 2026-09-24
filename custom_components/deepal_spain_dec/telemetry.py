@@ -122,6 +122,26 @@ def as_seat_level(value: Any) -> int | None:
     return parsed_value // 2
 
 
+def as_charge_connector_connected(value: Any) -> bool | None:
+    """Return whether a charge connector state means a gun is plugged in.
+
+    Confirmed by cross-checking another open-source Deepal
+    integration's code and docstring: the raw value is *not* a plain
+    boolean — 0 **and** 1 both mean "not connected"; only 2 or higher
+    means connected (a charging AC gun was observed reporting 3).
+    They verified 0 specifically against a parked car with nothing
+    plugged in. A plain as_bool() would treat 1 as "connected", which
+    is wrong — confirmed by our own user seeing "Conector AC:
+    Enchufado" with the car genuinely unplugged (raw value 1).
+    """
+    parsed_value = as_int(value)
+
+    if parsed_value is None:
+        return None
+
+    return parsed_value not in (0, 1)
+
+
 def first_value(
     parameters: dict[str, Any],
     *keys: str,
@@ -227,10 +247,10 @@ def parameters_to_telemetry(
         remaining_charge_minutes=parse_remaining_charge_time(
             parameters.get("chargDeltMins")
         ),
-        ac_charge_connector_connected=as_bool(
+        ac_charge_connector_connected=as_charge_connector_connected(
             parameters.get("acChargeGunConnectionState")
         ),
-        dc_charge_connector_connected=as_bool(
+        dc_charge_connector_connected=as_charge_connector_connected(
             parameters.get("dcChargeGunConnectionState")
         ),
 

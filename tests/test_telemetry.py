@@ -183,8 +183,8 @@ def realistic_payload() -> dict:
         "BattACChrgInCurr": 0,
         "BattDCChrgInCurr": 0,
         "chargDeltMins": 8191,
-        "acChargeGunConnectionState": 1,
-        "dcChargeGunConnectionState": 0,
+        "acChargeGunConnectionState": 3,
+        "dcChargeGunConnectionState": 1,
         # Climate
         "vehicleTemperature": 24.0,
         "innerHumidity": 69,
@@ -253,7 +253,7 @@ def test_parameters_to_telemetry_maps_known_fields(realistic_payload):
     assert result.charging is False
     assert result.remaining_charge_minutes is None  # 8191 sentinel
     assert result.ac_charge_connector_connected is True
-    assert result.dc_charge_connector_connected is False
+    assert result.dc_charge_connector_connected is False  # 1 == not connected
     assert result.inside_temperature_c == 24.0
     assert result.cabin_humidity_percent == 6.9
     assert result.front_left_door is False
@@ -422,3 +422,25 @@ def test_mapped_keys_contains_newly_mapped_fields(key):
 )
 def test_mapped_keys_excludes_fields_removed_in_v1_2_0(key):
     assert key not in telemetry.MAPPED_KEYS
+
+
+@pytest.mark.parametrize(
+    ("raw_value", "expected"),
+    [
+        (0, False),  # confirmed against a real parked, unplugged car
+        (1, False),  # regression: a plain bool cast treats this as True
+        (2, True),
+        (3, True),  # observed on a charging AC gun
+        (None, None),
+        ("boom", None),
+    ],
+)
+def test_as_charge_connector_connected(raw_value, expected):
+    # 0 *and* 1 both mean "not connected" — cross-checked against
+    # another open-source Deepal integration's code (and its own
+    # comment that it verified 0 against a real parked, unplugged
+    # car). A plain as_bool() would wrongly treat 1 as connected —
+    # confirmed as a real regression by a user seeing "Conector AC:
+    # Enchufado" with the car genuinely unplugged (raw value 1).
+    assert telemetry.as_charge_connector_connected(raw_value) is expected
+
