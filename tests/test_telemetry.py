@@ -183,6 +183,8 @@ def realistic_payload() -> dict:
         "BattACChrgInCurr": 0,
         "BattDCChrgInCurr": 0,
         "chargDeltMins": 8191,
+        "acChargeGunConnectionState": 1,
+        "dcChargeGunConnectionState": 0,
         # Climate
         "vehicleTemperature": 24.0,
         "innerHumidity": 69,
@@ -250,6 +252,8 @@ def test_parameters_to_telemetry_maps_known_fields(realistic_payload):
     assert result.last_update == datetime(2026, 9, 18, 0, 48, 36, tzinfo=UTC)
     assert result.charging is False
     assert result.remaining_charge_minutes is None  # 8191 sentinel
+    assert result.ac_charge_connector_connected is True
+    assert result.dc_charge_connector_connected is False
     assert result.inside_temperature_c == 24.0
     assert result.cabin_humidity_percent == 6.9
     assert result.front_left_door is False
@@ -377,6 +381,8 @@ def test_mapped_keys_excludes_known_unmapped_fields(key):
         "passengerSeatAirStatus",
         "steeringWheelHeating",
         "frontDefrostStatus",
+        "acChargeGunConnectionState",
+        "dcChargeGunConnectionState",
     ],
 )
 def test_mapped_keys_contains_newly_mapped_fields(key):

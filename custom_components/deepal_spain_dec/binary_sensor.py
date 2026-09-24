@@ -69,6 +69,22 @@ BINARY_SENSOR_DESCRIPTIONS: tuple[
         value_fn=lambda data: data.charging,
     ),
     DeepalBinarySensorDescription(
+        key="ac_charge_connector",
+        translation_key="ac_charge_connector",
+        name="Conector AC",
+        device_class=BinarySensorDeviceClass.PLUG,
+        icon="mdi:ev-plug-type2",
+        value_fn=lambda data: data.ac_charge_connector_connected,
+    ),
+    DeepalBinarySensorDescription(
+        key="dc_charge_connector",
+        translation_key="dc_charge_connector",
+        name="Conector DC",
+        device_class=BinarySensorDeviceClass.PLUG,
+        icon="mdi:ev-plug-ccs2",
+        value_fn=lambda data: data.dc_charge_connector_connected,
+    ),
+    DeepalBinarySensorDescription(
         key="front_left_door",
         translation_key="front_left_door",
         name="Puerta Delantera Izquierda",

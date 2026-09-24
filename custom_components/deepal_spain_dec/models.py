@@ -72,6 +72,11 @@ class DeepalTelemetry:
 
     remaining_charge_minutes: int | None = None
 
+    # Charging connector plugged in — AC (Type 2, slow/normal charging)
+    # and DC (CCS2, fast charging) are reported separately.
+    ac_charge_connector_connected: bool | None = None
+    dc_charge_connector_connected: bool | None = None
+
     # Climate
     inside_temperature_c: float | None = None
 

@@ -6,12 +6,11 @@ control remoto (escribir en el coche, no leerlo), ver
 [`remote-control.md`](remote-control.md).
 
 - **Vehículo de referencia:** Deepal S05 (VIN `LS6CME0P6TK106840`)
-- **Última actualización:** 2026-09-2x (v1.3.1b4: añadidos control y lectura
-  de calefacción/ventilación de asientos, volante calefactado y desempañado
-  delantero — sin confirmar todavía contra este vehículo)
+- **Última actualización:** 2026-09-24 (v1.3.1b10: añadidos y confirmados
+  con datos reales los conectores de carga AC/DC)
 - **Claves recibidas en la primera captura:** 113
-- **Mapeadas a entidades:** 43
-- **Sin mapear / descartadas deliberadamente:** 70
+- **Mapeadas a entidades:** 45
+- **Sin mapear / descartadas deliberadamente:** 68
 
 ## Cómo capturar valores
 
@@ -55,6 +54,8 @@ Claves ya mapeadas en `telemetry.py`. No requieren acción.
 | `ChrgSts` | Cargando | |
 | `BattACChrgInCurr` / `BattDCChrgInCurr` / `battACChrgInCurr` / `battDCChrgInCurr` | Corriente de carga | El fabricante envía ambas grafías |
 | `chargDeltMins` | Minutos restantes de carga | `8191` = valor nulo |
+| `acChargeGunConnectionState` | Conector AC | ✅ Confirmado 2026-09-24 con datos reales del propio usuario: `1` = manguera puesta, `0` = no puesta. Entidad "Conector AC", icono `mdi:ev-plug-type2` |
+| `dcChargeGunConnectionState` | Conector DC | ✅ Misma confirmación que la fila anterior. Entidad "Conector DC", icono `mdi:ev-plug-ccs2` |
 | `vehicleTemperature` | Temperatura interior | |
 | `innerHumidity` | Humedad interior | Décimas de % (se divide entre 10) |
 | `driverDoor` / `passengerDoor` / `leftRearDoor` / `rightRearDoor` | Puerta Delantera/Trasera Izquierda/Derecha | ✅ Confirmado contra el vehículo real: son las puertas físicas (abrir una puerta cambia esta entidad). Renombradas de "Ventanilla..." a "Puerta..." en v1.2.1b7 — la hipótesis anterior de que estos campos eran ventanas era incorrecta |
@@ -97,8 +98,6 @@ Recibidas pero sin mapear. Ordenadas por utilidad práctica.
 
 | Clave | Hipótesis | Valor en reposo | Valor cargando | Estado |
 | --- | --- | --- | --- | --- |
-| `acChargeGunConnectionState` | Conector AC enchufado | | | ? |
-| `dcChargeGunConnectionState` | Conector DC enchufado | | | ? |
 | `chargeCoverStatus` | Tapa de carga abierta | | | ? |
 | `chargeSystemStatus` | Estado del sistema de carga | | | ? |
 | `powerBatteryStatus` | Estado batería tracción | | | ? |

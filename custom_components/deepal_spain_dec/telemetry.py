@@ -32,6 +32,8 @@ MAPPED_KEYS: frozenset[str] = frozenset(
         "battACChrgInCurr",
         "battDCChrgInCurr",
         "chargDeltMins",
+        "acChargeGunConnectionState",
+        "dcChargeGunConnectionState",
         # Climate
         "vehicleTemperature",
         "innerHumidity",
@@ -224,6 +226,12 @@ def parameters_to_telemetry(
         ),
         remaining_charge_minutes=parse_remaining_charge_time(
             parameters.get("chargDeltMins")
+        ),
+        ac_charge_connector_connected=as_bool(
+            parameters.get("acChargeGunConnectionState")
+        ),
+        dc_charge_connector_connected=as_bool(
+            parameters.get("dcChargeGunConnectionState")
         ),
 
         # Climate
