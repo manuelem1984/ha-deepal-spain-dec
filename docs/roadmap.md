@@ -88,9 +88,12 @@ la siguiente versión estable.
         presión/temperatura (pendiente de diseño — ver "Decisiones de
         diseño pendientes" en `docs/dashboard.md`).
       - Máximo 3 secciones en horizontal por pestaña.
-      - **Tarjeta 1 (General)** — [x] hecho en v1.3.1b7: título
-        "Deepal S05 &lt;versión&gt; &lt;color&gt;". Pendiente: estado
-        (batería/carga, kilometraje, conectado/última actualización) y
+      - **Tarjeta 1 (General)** — [x] título hecho en v1.3.1b7
+        ("Deepal S05 &lt;versión&gt; &lt;color&gt;"); [x] indicador de
+        batería (porcentaje + icono variable en pasos de 10%, en rojo si
+        &lt;10%, amarillo 10-30%, verde &gt;30%) añadido en v1.3.1b8,
+        alineado a la derecha del título. Pendiente: resto del estado
+        (cargando/enchufado, kilometraje, conectado/última actualización) y
         acciones rápidas (actualizar, climatizador; bloquear/desbloquear
         solo cuando exista el bloque de PIN).
       - **Tarjeta 2 (🚗 Vehículo)**: VIN, kilometraje, estado del motor, y

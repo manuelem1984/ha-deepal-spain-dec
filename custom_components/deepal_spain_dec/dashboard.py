@@ -18,6 +18,7 @@ from typing import Any
 import yaml
 from homeassistant.components import frontend
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
 
 from .const import (
     CONF_VEHICLE_COLOR,
@@ -81,6 +82,79 @@ def _vehicle_card_title(entry_options: dict[str, Any]) -> str:
     return " ".join(parts)
 
 
+def _battery_entity_id(
+    hass: HomeAssistant,
+    vehicle_id: str,
+) -> str | None:
+    """Look up the battery sensor's current entity_id for one vehicle.
+
+    Entity descriptions only fix a unique_id
+    (f"{vehicle_id}_battery_level", see entity.py); the entity_id
+    itself is assigned by Home Assistant and can be renamed by the
+    user, so it has to be resolved through the entity registry rather
+    than guessed from the vehicle_id/key directly.
+    """
+    return er.async_get(hass).async_get_entity_id(
+        "sensor",
+        DOMAIN,
+        f"{vehicle_id}_battery_level",
+    )
+
+
+def _general_card(
+    entry_options: dict[str, Any],
+    battery_entity_id: str | None,
+) -> dict[str, Any]:
+    """Build the first ("General") card: title plus a battery indicator.
+
+    The battery indicator — percentage text followed by a battery
+    icon, both colored by charge level (red below 10%, yellow 10-30%,
+    green above 30%) and the icon shape stepped in the same 0/10/20/
+    .../100 increments Home Assistant's own battery icons use — is
+    built as a Jinja template inside the markdown card's content,
+    right-aligned, since a plain markdown card is the simplest way to
+    mix a templated icon with arbitrary layout (a flexbox row) inside
+    the same bordered card as the title, rather than a separate card.
+    If the battery entity can't be found (e.g. still starting up),
+    the indicator is left out rather than shipping a template that
+    references a non-existent entity.
+    """
+    content = ""
+
+    if battery_entity_id:
+        content = (
+            "<div style='display:flex;justify-content:flex-end;"
+            "align-items:center;gap:6px;font-size:1.1em;'>\n"
+            f"{{%- set batt = states('{battery_entity_id}') | "
+            "int(0) -%}\n"
+            "{%- if batt < 10 -%}{%- set batt_color = "
+            "'var(--error-color, red)' -%}\n"
+            "{%- elif batt <= 30 -%}{%- set batt_color = "
+            "'var(--warning-color, orange)' -%}\n"
+            "{%- else -%}{%- set batt_color = "
+            "'var(--success-color, green)' -%}{%- endif -%}\n"
+            "{%- set batt_step = (batt / 10) | round(0, 'floor') "
+            "| int * 10 -%}\n"
+            "{%- if batt_step <= 0 -%}{%- set batt_icon = "
+            "'mdi:battery-outline' -%}\n"
+            "{%- elif batt_step >= 100 -%}{%- set batt_icon = "
+            "'mdi:battery' -%}\n"
+            "{%- else -%}{%- set batt_icon = "
+            "'mdi:battery-' ~ batt_step -%}{%- endif -%}\n"
+            "<span style='color:{{ batt_color }};'>{{ batt }}%"
+            "</span>\n"
+            "<ha-icon icon='{{ batt_icon }}' "
+            "style='color:{{ batt_color }};'></ha-icon>\n"
+            "</div>"
+        )
+
+    return {
+        "type": "markdown",
+        "title": _vehicle_card_title(entry_options),
+        "content": content,
+    }
+
+
 def _build_dashboard_config(hass: HomeAssistant) -> dict[str, Any]:
     """Build the full YAML-mode dashboard: one view (tab) per vehicle.
 
@@ -98,6 +172,7 @@ def _build_dashboard_config(hass: HomeAssistant) -> dict[str, Any]:
         if coordinator is None:
             continue
 
+        vehicle_id = coordinator.vehicle.vehicle_id
         vin = coordinator.vehicle.vin or entry.entry_id
 
         views.append(
@@ -110,13 +185,12 @@ def _build_dashboard_config(hass: HomeAssistant) -> dict[str, Any]:
                     {
                         "type": "grid",
                         "cards": [
-                            {
-                                "type": "markdown",
-                                "title": _vehicle_card_title(
-                                    entry.options
+                            _general_card(
+                                entry.options,
+                                _battery_entity_id(
+                                    hass, vehicle_id
                                 ),
-                                "content": "",
-                            }
+                            )
                         ],
                     }
                 ],
