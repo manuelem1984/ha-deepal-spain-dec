@@ -46,6 +46,81 @@ class DeepalSensorDescription(
         Any,
     ]
 
+    # Optional per-value icon override — e.g. a different plug icon
+    # for each possible state of an enum sensor. Keyed by the exact
+    # string value_fn returns; falls back to `icon` / the
+    # device_class default when the current value isn't a key here
+    # (including when it's None).
+    icon_map: dict[str, str] | None = None
+
+
+# Possible states of the "Carga - Estado" sensor below — also its
+# device_class=ENUM options, and the keys translated in
+# strings.json/translations/*.json (entity.sensor.charge_status.state).
+CHARGE_STATUS_DISCONNECTED = "disconnected"
+CHARGE_STATUS_CONNECTED_AC = "connected_ac"
+CHARGE_STATUS_CONNECTED_DC = "connected_dc"
+CHARGE_STATUS_CHARGING_AC = "charging_ac"
+CHARGE_STATUS_CHARGING_DC = "charging_dc"
+
+CHARGE_STATUS_OPTIONS = [
+    CHARGE_STATUS_DISCONNECTED,
+    CHARGE_STATUS_CONNECTED_AC,
+    CHARGE_STATUS_CONNECTED_DC,
+    CHARGE_STATUS_CHARGING_AC,
+    CHARGE_STATUS_CHARGING_DC,
+]
+
+CHARGE_STATUS_ICONS = {
+    CHARGE_STATUS_DISCONNECTED: "mdi:power-plug-off",
+    CHARGE_STATUS_CONNECTED_AC: "mdi:ev-plug-type2",
+    CHARGE_STATUS_CONNECTED_DC: "mdi:ev-plug-ccs2",
+    CHARGE_STATUS_CHARGING_AC: "mdi:lightning-bolt-outline",
+    CHARGE_STATUS_CHARGING_DC: "mdi:flash-outline",
+}
+
+
+def _charge_status(data: DeepalTelemetry) -> str | None:
+    """Combine "Carga", "Conector AC" and "Conector DC" into one state.
+
+    Evaluated in this exact order, matching the user's own
+    specification:
+    1. Neither connector plugged in and not charging -> disconnected.
+    2. AC plugged in, not charging -> connected_ac.
+    3. DC plugged in, not charging -> connected_dc.
+    4. AC plugged in, charging -> charging_ac.
+    5. DC plugged in, charging -> charging_dc.
+
+    Returns None (shown as "unknown") rather than guessing a label
+    when any of the three underlying values isn't known yet, or when
+    none of the five cases above match (e.g. charging without either
+    connector reporting plugged in — physically shouldn't happen, but
+    telemetry can lag).
+    """
+    ac = data.ac_charge_connector_connected
+    dc = data.dc_charge_connector_connected
+    charging = data.charging
+
+    if ac is None or dc is None or charging is None:
+        return None
+
+    if not ac and not dc and not charging:
+        return CHARGE_STATUS_DISCONNECTED
+
+    if ac and not charging:
+        return CHARGE_STATUS_CONNECTED_AC
+
+    if dc and not charging:
+        return CHARGE_STATUS_CONNECTED_DC
+
+    if ac and charging:
+        return CHARGE_STATUS_CHARGING_AC
+
+    if dc and charging:
+        return CHARGE_STATUS_CHARGING_DC
+
+    return None
+
 
 SENSOR_DESCRIPTIONS: tuple[
     DeepalSensorDescription,
@@ -101,6 +176,15 @@ SENSOR_DESCRIPTIONS: tuple[
         device_class=SensorDeviceClass.DURATION,
         native_unit_of_measurement=UnitOfTime.MINUTES,
         value_fn=lambda data: data.remaining_charge_minutes,
+    ),
+    DeepalSensorDescription(
+        key="charge_status",
+        translation_key="charge_status",
+        name="Carga - Estado",
+        device_class=SensorDeviceClass.ENUM,
+        options=CHARGE_STATUS_OPTIONS,
+        icon_map=CHARGE_STATUS_ICONS,
+        value_fn=_charge_status,
     ),
     DeepalSensorDescription(
         key="inside_temperature",
@@ -233,3 +317,18 @@ class DeepalSpainSensor(
             return None
 
         return self.entity_description.value_fn(data)
+
+    @property
+    def icon(self) -> str | None:
+        """Return a per-value icon when the description defines one."""
+        icon_map = self.entity_description.icon_map
+
+        if not icon_map:
+            return self.entity_description.icon
+
+        value = self.native_value
+
+        if value not in icon_map:
+            return self.entity_description.icon
+
+        return icon_map[value]

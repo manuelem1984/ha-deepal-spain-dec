@@ -53,6 +53,17 @@
           "off": "Off"
         }
       }
+    },
+    "sensor": {
+      "charge_status": {
+        "state": {
+          "disconnected": "Disconnected",
+          "connected_ac": "Connected AC",
+          "connected_dc": "Connected DC",
+          "charging_ac": "Charging AC",
+          "charging_dc": "Charging DC"
+        }
+      }
     }
   },
   "options": {

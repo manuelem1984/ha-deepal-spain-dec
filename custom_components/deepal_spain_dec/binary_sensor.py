@@ -64,8 +64,10 @@ BINARY_SENSOR_DESCRIPTIONS: tuple[
     DeepalBinarySensorDescription(
         key="charging",
         translation_key="charging",
-        name="Cargando",
+        name="Carga",
         device_class=BinarySensorDeviceClass.BATTERY_CHARGING,
+        icon_on="mdi:lightning-bolt",
+        icon_off="mdi:lightning-bolt-outline",
         value_fn=lambda data: data.charging,
     ),
     DeepalBinarySensorDescription(
