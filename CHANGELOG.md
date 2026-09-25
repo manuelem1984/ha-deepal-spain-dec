@@ -8,6 +8,16 @@ Las versiones `bN` son betas (pre-release en GitHub).
 
 ---
 
+## 1.3.1b17
+
+**Arreglo de validación (`hassfest`).** Sin cambios de comportamiento.
+
+- `manifest.json`: declaradas las dependencias `frontend`, `http` y
+  `persistent_notification` (usadas desde `frontend_icons.py` y
+  `coordinator.py`, pero no declaradas).
+- `__init__.py`: añadido `CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)`,
+  exigido por `hassfest` al implementar `async_setup`.
+
 ## 1.3.1b15
 
 **Iconos personalizados ("dec:").** La integración sirve ahora su propio
