@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import DeepalApiClient
@@ -29,6 +30,14 @@ from .const import (
 from .coordinator import DeepalSpainCoordinator
 from . import frontend_icons
 from .models import DeepalSession, DeepalVehicle
+
+# Config-flow-only integration: async_setup() below exists purely to
+# register the "dec:" custom icon set once per Home Assistant run
+# (see frontend_icons.py), not to accept any YAML configuration. This
+# tells Home Assistant/hassfest exactly that — a bare "domain:" line
+# in configuration.yaml is rejected with a clear repair issue instead
+# of being silently accepted or misread as configuration.
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 
 async def async_setup(
