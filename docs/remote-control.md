@@ -152,21 +152,105 @@ antes de que el coche aplique el cambio y revertirlo unos segundos.
 
 ---
 
-## 5. Pendiente: comandos con PIN
+## 5. Comandos con PIN (puertas, ventanillas, maletero)
 
-No implementado. Requiere guardar el PIN de control en las opciones de la
-integración y canjearlo en cada comando
-(`security-code/get-status` → `security-code/check-code` → `rcToken`).
+Implementado en v1.3.1, tras una ronda de análisis y diseño conjunto sobre cómo
+integra esto otro proyecto de referencia para este mismo backend, y sobre cómo
+evitar que una pulsación accidental deje el coche abierto o con una ventanilla
+bajada.
 
-| Comando | Endpoint | Estado |
-| --- | --- | --- |
-| Bloquear / desbloquear puertas | `control/doors` | ❌ |
-| Subir / bajar ventanillas | `control/windows` | ❌ |
-| Abrir / cerrar maletero | `control/trunk` | ❌ |
+### 5.1. El bloque es opcional y viene desactivado por defecto
 
-Recomendación para cuando se implemente: crear el PIN con la **misma cuenta** que
-usa Home Assistant (la secundaria). Para ello, en la app oficial, con esa cuenta,
-intenta bajar una ventanilla: la app pedirá crear el PIN.
+Todo esto se configura en **Opciones** de la integración:
+
+- **PIN de control remoto habilitado** — interruptor maestro, desactivado por
+  defecto. Mientras esté así, no existe ninguna entidad de puertas, ventanillas
+  ni maletero, ni el candado de armado.
+- **Para activarlo hace falta introducir el PIN y que se verifique en ese mismo
+  momento** contra el servidor de Deepal (`check_control_code`). Si el PIN es
+  incorrecto o hay demasiados intentos fallidos, la activación se rechaza — no
+  se guarda como activado ni aparece ninguna entidad hasta que la verificación
+  pase. El campo se muestra enmascarado (tipo contraseña).
+- **El PIN debe haberse creado antes desde la app oficial**, con la misma
+  cuenta con la que Home Assistant inicia sesión (normalmente la secundaria).
+  Para crearlo: en la app, con esa cuenta, intenta bajar una ventanilla — la
+  app pedirá crear el PIN. Un PIN creado con otra cuenta es rechazado por el
+  servidor.
+
+### 5.2. El intercambio PIN → `rcToken`
+
+Mismo mecanismo que usan otros proyectos para este backend, confirmado
+funcionando en nuestras propias simulaciones (`tests/test_api.py`):
+
+1. `get_security_code_status()` — consulta cuántos intentos de PIN quedan
+   (`retryQuantity`) **antes de intentar nada**. Si no queda ninguno, se
+   rechaza localmente en vez de arriesgarse a un bloqueo peor.
+2. `check_control_code(pin)` — cifra el PIN con la misma clave pública que se
+   usa para email/teléfono al iniciar sesión, y lo manda al servidor. La
+   respuesta trae un `rcToken`.
+
+Ese `rcToken`:
+
+- **Se guarda y se reutiliza** en varios comandos seguidos — no se pide un PIN
+  nuevo cada vez.
+- **Se renueva solo si el servidor lo rechaza** (comparado con un `rcToken`
+  reutilizado, no uno recién obtenido): se descarta, se pide uno nuevo con el
+  PIN guardado, y se reintenta el comando una vez.
+- **Entra dentro de la firma RSA del comando**, junto con el resto del
+  payload — no es un paso aparte.
+
+### 5.3. Opción A / Opción B — la protección contra pulsaciones accidentales
+
+Una confirmación tipo "¿estás seguro?" en el propio dashboard de Lovelace
+**no protege de verdad**: solo cubre esa tarjeta concreta, no una
+automatización, un asistente de voz, ni otro dashboard sin esa confirmación.
+La protección real tiene que vivir en el propio código, en el mismo sitio por
+donde pasan todos los comandos (`coordinator.async_send_command`).
+
+- **Opción A — No segura**: los comandos se ejecutan directamente al
+  pulsarlos, sin ningún paso intermedio.
+- **Opción B — Segura**: hace falta "armar" primero, como un mando de garaje.
+  - Entidad `lock` (no `switch`) llamada **"Desbloqueo Acciones PIN"** —
+    ganamos gratis los iconos `mdi:lock`/`mdi:lock-open`, y si algún día se
+    conecta esta integración a un asistente de voz, Google ya exige su propio
+    PIN de 4 dígitos para desbloquear cualquier `lock` por voz.
+  - Al desbloquearlo, queda armado durante una **ventana de tiempo
+    configurable** (10 / 20 / 30 / 60 segundos — 30 por defecto), dentro de la
+    cual se pueden ejecutar varias acciones seguidas (no solo una).
+  - Pasado ese tiempo, se bloquea solo (`async_call_later`, cancelado y
+    reiniciado si se vuelve a armar antes de que expire).
+  - **Siempre arranca bloqueado** al iniciar o recargar Home Assistant — nunca
+    se recuerda armado de una sesión a otra.
+  - Aviso al desbloquear: configurable, **desactivado por defecto**.
+  - Esta entidad solo existe si se elige la Opción B; con la Opción A no
+    aparece.
+  - La comprobación de si está armado (`_is_command_blocked_by_arming`, ver
+    `coordinator.py`) se hace en el propio `async_send_command`, así que
+    protege igual venga el comando de un botón, una automatización o un
+    asistente de voz — probado con 6 casos en `tests/test_coordinator.py`.
+
+### 5.4. Comandos y entidades
+
+| Comando | Endpoint | Entidad | Estado |
+| --- | --- | --- | --- |
+| Bloquear / desbloquear puertas | `control/doors` | `lock.bloqueo_de_puertas` | ⚠️ payload cruzado con otra implementación, sin confirmar contra el coche real |
+| Abrir / cerrar maletero | `control/trunk` | `cover.maletero` | ⚠️ ídem |
+| Subir / bajar ventanillas (×4) | `control/windows` | `cover.ventanilla_*` (4) | ⚠️ forma exacta del payload por posición de ventanilla **sin confirmar** — ver nota abajo |
+
+Todas requieren `require_rc_token=True` en `_signed_command` y, en Opción B,
+`requires_arming=True` en `async_send_command`.
+
+Las nuevas entidades `lock`/`cover` conviven con los `binary_sensor` de
+solo lectura que ya existían para puertas/ventanillas/maletero desde
+v1.3.1b13 — no se ha quitado nada para evitar un cambio incompatible. Queda
+anotado en `docs/roadmap.md` como posible limpieza futura.
+
+**Nota sobre `control_windows`**: a diferencia de puertas y maletero, no se ha
+podido confirmar el nombre exacto de los campos que espera el servidor para
+cada ventanilla. La implementación actual manda un campo booleano por
+posición (`leftFront`, `rightFront`, `leftRear`, `rightRear`), siguiendo la
+misma convención de nombres que ya usa esta API en otros sitios (asientos,
+neumáticos) — es una hipótesis razonada, no un dato confirmado.
 
 ## 6. Pruebas pendientes con el coche real
 
@@ -174,3 +258,13 @@ intenta bajar una ventanilla: la app pedirá crear el PIN.
 - [ ] Calefacción y ventilación de asientos (encender, cambiar nivel, apagar).
 - [ ] Volante calefactado y desempañado.
 - [ ] Temperatura de la climatización grado a grado frente a la app oficial.
+- [ ] Bloquear/desbloquear puertas (`lock.bloqueo_de_puertas`).
+- [ ] Abrir/cerrar maletero (`cover.maletero`).
+- [ ] Subir/bajar cada ventanilla — y confirmar si el nombre de campo por
+      posición (`leftFront`, etc.) es correcto o el servidor lo rechaza.
+- [ ] Opción B: confirmar que el rebloqueo automático ocurre exactamente al
+      cumplirse la duración configurada, y que varias acciones seguidas
+      dentro de la ventana funcionan sin tener que rearmar entre medias.
+- [ ] Confirmar que un PIN creado con la cuenta correcta se verifica bien
+      desde el formulario de Opciones, y que uno incorrecto (o creado con
+      otra cuenta) se rechaza con el mensaje esperado.

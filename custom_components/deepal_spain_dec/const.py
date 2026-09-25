@@ -84,6 +84,31 @@ CONDITION_OVERLAY = (
     "/intl-app-gw/intl-app-car-condition/api/vehicle/condition"
 )
 
+# PIN-gated endpoints (doors, windows, trunk) — the only commands that
+# need the remote-control PIN exchanged for an "rcToken" first. See
+# docs/remote-control.md, "Comandos con PIN", for the full mechanism.
+# The PIN exchange itself:
+GET_SECURITY_CODE_STATUS = (
+    "/intl-app-gw/intl-app-car-control/api/security-code/get-status"
+)
+CHECK_CONTROL_CODE = (
+    "/intl-app-gw/intl-app-car-control/api/security-code/check-code"
+)
+# The three commands themselves. Endpoint paths follow the same
+# control/* convention as every other signed command; the exact
+# payload shape for windows in particular (per-window field names)
+# is a best-effort guess pending confirmation against a real
+# vehicle — see api.py's control_windows() docstring.
+CONTROL_DOORS = (
+    "/intl-app-gw/intl-app-car-control/api/control/doors"
+)
+CONTROL_WINDOWS = (
+    "/intl-app-gw/intl-app-car-control/api/control/windows"
+)
+CONTROL_TRUNK = (
+    "/intl-app-gw/intl-app-car-control/api/control/trunk"
+)
+
 # control_flashing_honking() action types.
 FLASH_HONK_OFF = 0
 FLASH_HONK_FLASH = 1
@@ -115,6 +140,32 @@ CONF_VEHICLE_VIN = "vehicle_vin"
 CONF_VEHICLE_MODEL = "vehicle_model"
 CONF_VEHICLE_IMAGE_URL = "vehicle_image_url"
 CONF_MQTT_ENABLED = "mqtt_enabled"
+
+# PIN de control remoto (puertas, ventanillas, maletero) — todo el
+# bloque es opcional y viene desactivado por defecto. Ver
+# config_flow.DeepalSpainOptionsFlow y docs/remote-control.md.
+CONF_PIN_ENABLED = "pin_enabled"
+CONF_CONTROL_PIN = "control_pin"
+CONF_PIN_MODE = "pin_mode"
+CONF_ARM_DURATION = "arm_duration_seconds"
+CONF_ARM_NOTIFY = "arm_notify"
+
+# Opción A: comandos con PIN directos, sin verificación previa.
+PIN_MODE_UNSAFE = "unsafe"
+# Opción B: hace falta "armar" primero (entidad lock
+# "Desbloqueo Acciones PIN"), como un mando de garaje.
+PIN_MODE_SAFE = "safe"
+PIN_MODES = {
+    PIN_MODE_UNSAFE: "No segura (comandos directos)",
+    PIN_MODE_SAFE: "Segura (verificación en dos pulsaciones)",
+}
+DEFAULT_PIN_MODE = PIN_MODE_UNSAFE
+
+# Cuánto dura "armado" el candado de la Opción B antes de rebloquearse
+# solo. Siempre arranca bloqueado al iniciar Home Assistant.
+ARM_DURATION_OPTIONS = ["10", "20", "30", "60"]
+DEFAULT_ARM_DURATION_SECONDS = 30
+DEFAULT_ARM_NOTIFY = False
 
 # Vehicle trim and color, chosen by the user in the integration's
 # Options (not provided by Deepal's API) so the bundled photo can
@@ -162,4 +213,6 @@ PLATFORMS = [
     "climate",
     "number",
     "switch",
+    "lock",
+    "cover",
 ]

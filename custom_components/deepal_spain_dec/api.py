@@ -18,22 +18,31 @@ from .api_errors import (
 from .const import (
     BASE_URL,
     CA_BASE_URL,
+    CHECK_CONTROL_CODE,
     CONTROL_AIR_CONDITIONER,
     CONTROL_CONDITION_INQUIRY,
     CONTROL_DEFROST,
+    CONTROL_DOORS,
     CONTROL_FLASHING_HONKING,
     CONTROL_GET_SERIAL_NO,
     CONTROL_RESULT,
     CONTROL_SEATS_HEAT,
     CONTROL_SEATS_WIND,
     CONTROL_STEERING_WHEEL_HEAT,
+    CONTROL_TRUNK,
+    CONTROL_WINDOWS,
     CONDITION_OVERLAY,
     DEFAULT_APP_VERSION,
     DEFAULT_LANGUAGE,
+    GET_SECURITY_CODE_STATUS,
     REQUEST_TIMEOUT,
     SPAIN_COUNTRY,
 )
-from .crypto import decrypt_with_private_key, sign_command_payload
+from .crypto import (
+    decrypt_with_private_key,
+    encrypt_login_value,
+    sign_command_payload,
+)
 from .models import DeepalVehicle
 
 __all__ = [
@@ -67,6 +76,17 @@ class DeepalApiClient:
         # entries created before signed commands existed and never
         # reauthenticated since.
         self.private_key_pem = private_key_pem
+
+        # Remote-control PIN (doors/windows/trunk only — every other
+        # command works without it). Set from the config entry's
+        # options by __init__.py when the PIN block is enabled; None
+        # otherwise, in which case _signed_command(require_rc_token=
+        # True) refuses those three commands outright. rc_token is
+        # the short-lived credential exchanged for it (see
+        # check_control_code()) — cached and reused across commands,
+        # refreshed only when the server rejects a reused one.
+        self.control_pin: str | None = None
+        self.rc_token: str | None = None
 
     def update_tokens(
         self,
@@ -330,13 +350,83 @@ class DeepalApiClient:
                 f"Could not decrypt the vehicle serial number: {err}"
             ) from err
 
+    async def get_security_code_status(self) -> dict[str, Any]:
+        """Fetch the control PIN status before exchanging it.
+
+        Called immediately before check_control_code(), mirroring
+        what the official app itself always does first.
+        """
+        data = await self.post(
+            GET_SECURITY_CODE_STATUS,
+            {},
+        )
+        return data if isinstance(data, dict) else {}
+
+    async def check_control_code(self, control_pin: str) -> str:
+        """Exchange the remote-control PIN for an rcToken.
+
+        Checks the remaining attempts first (get_security_code_status)
+        and refuses locally, without even trying, when none are left
+        — safer than risking a longer server-side lockout by
+        submitting a PIN we already know will be rejected. The PIN
+        itself is RSA-encrypted the same way as the email/mobile
+        number at login (encrypt_login_value), since it's the same
+        public key and padding Deepal's API expects for any sensitive
+        value sent in a request body.
+        """
+        status = await self.get_security_code_status()
+        retry_quantity = status.get("retryQuantity")
+
+        try:
+            remaining = (
+                int(retry_quantity)
+                if retry_quantity is not None
+                else None
+            )
+        except (TypeError, ValueError):
+            remaining = None
+
+        if remaining is not None and remaining <= 0:
+            raise DeepalRateLimitError(
+                "No quedan intentos para comprobar el PIN de control; "
+                "espera a que se levante el bloqueo o restablece el "
+                "PIN desde la aplicación oficial."
+            )
+
+        data = await self.post(
+            CHECK_CONTROL_CODE,
+            {"safeCode": encrypt_login_value(control_pin)},
+        )
+
+        if not isinstance(data, dict) or not data.get("rcToken"):
+            raise DeepalApiError(
+                "La comprobación del PIN de control no devolvió un "
+                "rcToken."
+            )
+
+        self.rc_token = str(data["rcToken"])
+        return self.rc_token
+
     async def _signed_command(
         self,
         path: str,
         vehicle_id: str,
         payload: dict[str, Any],
+        *,
+        require_rc_token: bool = False,
     ) -> str:
-        """Sign and send a remote-command payload, returning its commandId."""
+        """Sign and send a remote-command payload, returning its commandId.
+
+        require_rc_token=True is for the PIN-gated commands (doors,
+        windows, trunk): reuses a cached rc_token when there is one,
+        exchanges the stored control_pin for a fresh one otherwise
+        (raising DeepalCommandNotReady if no PIN is configured at
+        all), and — if the server rejects a *reused* token — clears
+        it, exchanges a new one, and retries the command exactly
+        once. A token obtained fresh in this same call is never
+        retried on failure, since a second consecutive rejection is
+        unlikely to be about the token's freshness.
+        """
         if not self.private_key_pem:
             raise DeepalCommandNotReady(
                 "The login private key is required to sign remote "
@@ -344,21 +434,58 @@ class DeepalApiClient:
                 "one."
             )
 
+        reused_rc_token = False
+
+        if require_rc_token:
+            if self.rc_token:
+                reused_rc_token = True
+            elif self.control_pin:
+                await self.check_control_code(self.control_pin)
+            else:
+                raise DeepalCommandNotReady(
+                    "El PIN de control es necesario para este "
+                    "comando; configúralo en las opciones de la "
+                    "integración."
+                )
+
         serial_no = await self._get_decrypted_serial_number()
 
-        signed_payload: dict[str, Any] = {
-            **payload,
-            # "seriralNo" (sic) matches the field name the server
-            # actually expects — a manufacturer typo, not ours.
-            "seriralNo": serial_no,
-            "vehicleId": vehicle_id,
-        }
-        signed_payload["sign"] = sign_command_payload(
-            self.private_key_pem,
-            signed_payload,
-        )
+        def _build_signed_payload() -> dict[str, Any]:
+            signed_payload: dict[str, Any] = {
+                **payload,
+                # "seriralNo" (sic) matches the field name the server
+                # actually expects — a manufacturer typo, not ours.
+                "seriralNo": serial_no,
+                "vehicleId": vehicle_id,
+            }
+            if require_rc_token and self.rc_token:
+                # Part of what gets signed below, same as every other
+                # field — not a separate step.
+                signed_payload["rcToken"] = self.rc_token
+            signed_payload["sign"] = sign_command_payload(
+                self.private_key_pem,
+                signed_payload,
+            )
+            return signed_payload
 
-        data = await self.post(path, signed_payload)
+        try:
+            data = await self.post(path, _build_signed_payload())
+        except (DeepalApiError, DeepalAuthError):
+            # A cached rcToken is itself a session that eventually
+            # expires; the server only reveals that by rejecting a
+            # command that reused it. Exchange a fresh one with the
+            # stored PIN and retry once — never for a freshly
+            # obtained token, which failing again points elsewhere.
+            if not (
+                require_rc_token
+                and reused_rc_token
+                and self.control_pin
+            ):
+                raise
+
+            self.rc_token = None
+            await self.check_control_code(self.control_pin)
+            data = await self.post(path, _build_signed_payload())
 
         if not isinstance(data, dict) or not data.get("commandId"):
             raise DeepalApiError(
@@ -573,3 +700,69 @@ class DeepalApiClient:
             },
         )
         return data if isinstance(data, dict) else {}
+
+    async def control_doors(
+        self,
+        vehicle_id: str,
+        locked: bool,
+    ) -> str:
+        """Lock or unlock every door at once (needs the control PIN).
+
+        There is no per-door lock/unlock — this is the same single
+        "central locking" action the car's own remote/key fob does.
+        """
+        return await self._signed_command(
+            CONTROL_DOORS,
+            vehicle_id,
+            {"command": "doors", "lock": locked},
+            require_rc_token=True,
+        )
+
+    async def control_trunk(
+        self,
+        vehicle_id: str,
+        open_trunk: bool,
+    ) -> str:
+        """Open or close the trunk (needs the control PIN).
+
+        Payload shape is a best-effort guess (a plain "open" boolean,
+        matching every other simple on/off command in this file) —
+        not yet confirmed against a real vehicle. See
+        docs/remote-control.md.
+        """
+        return await self._signed_command(
+            CONTROL_TRUNK,
+            vehicle_id,
+            {"command": "trunk", "open": open_trunk},
+            require_rc_token=True,
+        )
+
+    async def control_windows(
+        self,
+        vehicle_id: str,
+        *,
+        window: str,
+        open_window: bool,
+    ) -> str:
+        """Open or close one window (needs the control PIN).
+
+        `window` is one of "leftFront", "rightFront", "leftRear",
+        "rightRear" — the same four position names already used
+        elsewhere in this API (seats, tires). Sends only the one
+        window being changed, the same convention
+        control_seats_heat()/control_seats_wind() use for master vs.
+        copilot.
+
+        Unlike the other PIN-gated commands, the exact payload shape
+        for windows specifically has not been reverse-engineered from
+        a confirmed source — this guess (one boolean field per window
+        position) follows the naming convention the rest of the API
+        already uses, but has not been tried against a real vehicle
+        yet. See docs/remote-control.md before relying on it.
+        """
+        return await self._signed_command(
+            CONTROL_WINDOWS,
+            vehicle_id,
+            {"command": "windows", window: open_window},
+            require_rc_token=True,
+        )

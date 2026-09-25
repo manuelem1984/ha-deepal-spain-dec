@@ -69,13 +69,23 @@
   "options": {
     "step": {
       "init": {
-        "title": "Vehicle trim and color",
-        "description": "Choose your Deepal S05's trim and color to show the exact matching photo instead of a generic one. Both are optional.",
+        "title": "Trim, color and PIN control",
+        "description": "Choose your Deepal S05's trim and color to show the exact matching photo instead of a generic one (both optional). Below, turn on PIN-gated remote control (doors, windows, trunk) if you want it — off by default. The PIN must already exist in the official app, created with the same account this integration signs in with.",
         "data": {
           "vehicle_trim": "Trim",
-          "vehicle_color": "Color"
+          "vehicle_color": "Color",
+          "pin_enabled": "Remote control PIN enabled",
+          "control_pin": "Remote control PIN",
+          "pin_mode": "PIN command mode",
+          "arm_duration_seconds": "Unlock duration (Option B)",
+          "arm_notify": "Notify on unlock (Option B)"
         }
       }
+    },
+    "error": {
+      "pin_required": "Enter the control PIN to enable this block.",
+      "pin_invalid": "The PIN is invalid, or wasn't created with the account this integration uses.",
+      "pin_rate_limited": "Too many PIN attempts; wait for the lockout to lift or reset the PIN in the official app."
     }
   }
 }

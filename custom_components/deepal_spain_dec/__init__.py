@@ -12,8 +12,10 @@ from .const import (
     CONF_CAC_TOKEN,
     CONF_CAC_USER_ID,
     CONF_CA_USER_ID,
+    CONF_CONTROL_PIN,
     CONF_DEVICE_ID,
     CONF_MQTT_ENABLED,
+    CONF_PIN_ENABLED,
     CONF_PRIVATE_KEY,
     CONF_REFRESH_TOKEN,
     CONF_USER_ID,
@@ -40,6 +42,14 @@ async def async_setup_entry(
         cac_token=entry.data.get(CONF_CAC_TOKEN),
         private_key_pem=entry.data.get(CONF_PRIVATE_KEY),
     )
+
+    if entry.options.get(CONF_PIN_ENABLED):
+        # Only set when the PIN block is enabled — leaving it as None
+        # otherwise makes every PIN-gated command refuse itself
+        # outright (DeepalCommandNotReady), which is also why
+        # lock.py/cover.py don't create those entities at all in that
+        # case (see their async_setup_entry()).
+        api.control_pin = entry.options.get(CONF_CONTROL_PIN)
 
     session = DeepalSession(
         access_token=entry.data[CONF_ACCESS_TOKEN],
@@ -96,7 +106,10 @@ async def _async_options_updated(
     should swap the bundled photo shown by image.py, and the image
     entity only picks a fresh one at setup — see image.py's
     docstring for why a reload, not just re-reading the option, is
-    needed for image_last_updated to actually advance.
+    needed for image_last_updated to actually advance. Also needed
+    for the PIN block: enabling/disabling it, or switching between
+    "Opción A"/"Opción B", changes which entities lock.py/cover.py
+    create, and entity creation is decided once at platform setup.
     """
     await hass.config_entries.async_reload(entry.entry_id)
 

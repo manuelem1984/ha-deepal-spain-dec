@@ -57,7 +57,9 @@ algunos comandos remotos (climatización, luces, claxon, asientos...).
 
 Opcional: en **Configurar** puedes elegir la versión (Pro / Max / Max AWD) y el
 color de tu coche para que la imagen del vehículo coincida con el tuyo
-(ver [`docs/vehicle-photos.md`](docs/vehicle-photos.md)).
+(ver [`docs/vehicle-photos.md`](docs/vehicle-photos.md)), y activar el control
+remoto con PIN para puertas, ventanillas y maletero — desactivado por defecto
+(ver [`docs/remote-control.md`](docs/remote-control.md), sección 5).
 
 ---
 
@@ -130,10 +132,13 @@ con el coche real.
 | Volante calefactado · Desempañado delantero | switch | No | ⚠️ |
 | Actualizar datos del vehículo | button | No | ✅ |
 | Imagen del vehículo | image | — | ✅ |
+| Bloqueo de puertas | lock | Sí | ⚠️ nuevo en 1.3.1, sin confirmar con el coche real |
+| Maletero · Ventanilla Delantera/Trasera Izquierda/Derecha (4) | cover | Sí | ⚠️ nuevo en 1.3.1, sin confirmar con el coche real |
+| Desbloqueo Acciones PIN | lock | — | ⚠️ nuevo en 1.3.1, solo con la Opción B — ver `docs/remote-control.md` |
 
-**Aún no disponible:** abrir/cerrar puertas, ventanillas y maletero. Necesitan el
-PIN de control remoto y llegarán en una fase posterior
-(ver [`docs/remote-control.md`](docs/remote-control.md)).
+**Puertas, ventanillas y maletero necesitan el PIN de control remoto**,
+desactivado por defecto — actívalo en *Configurar* introduciendo el PIN
+creado desde la app oficial (ver `docs/remote-control.md`, sección 5).
 
 ---
 

@@ -21,17 +21,28 @@ from .api import (
 )
 from .auth import DeepalAuthenticator
 from .const import (
+    ARM_DURATION_OPTIONS,
     CONF_ACCESS_TOKEN,
+    CONF_ARM_DURATION,
+    CONF_ARM_NOTIFY,
     CONF_CAC_TOKEN,
     CONF_CAC_USER_ID,
     CONF_CA_USER_ID,
+    CONF_CONTROL_PIN,
     CONF_DEVICE_ID,
     CONF_EMAIL,
     CONF_LOGIN_METHOD,
     CONF_MOBILE,
     CONF_MQTT_ENABLED,
+    CONF_PIN_ENABLED,
+    CONF_PIN_MODE,
     CONF_VEHICLE_COLOR,
     CONF_VEHICLE_TRIM,
+    DEFAULT_ARM_DURATION_SECONDS,
+    DEFAULT_ARM_NOTIFY,
+    DEFAULT_PIN_MODE,
+    DOMAIN,
+    PIN_MODES,
     VEHICLE_COLORS,
     VEHICLE_TRIMS,
     CONF_PRIVATE_KEY,
@@ -41,7 +52,6 @@ from .const import (
     CONF_VEHICLE_IMAGE_URL,
     CONF_VEHICLE_MODEL,
     CONF_VEHICLE_VIN,
-    DOMAIN,
     LOGIN_METHOD_EMAIL,
     LOGIN_METHOD_SMS,
 )
@@ -339,29 +349,60 @@ class DeepalSpainDecConfigFlow(
 class DeepalSpainOptionsFlow(config_entries.OptionsFlow):
     """Handle Deepal Spain DEC options.
 
-    Right now the only options are the vehicle's trim and color,
-    purely cosmetic (used by image.py to show the matching bundled
-    photo instead of a generic stock shot) — Deepal's own API doesn't
-    report either. self.config_entry is provided by the base
-    OptionsFlow class; it must not be set manually here.
+    Two independent blocks: the vehicle's trim/color (purely
+    cosmetic, used by image.py), and the remote-control PIN block
+    (doors/windows/trunk) — off by default, and only turned on once
+    the PIN itself has been verified against the real account right
+    here, not just accepted on faith. self.config_entry is provided
+    by the base OptionsFlow class; it must not be set manually here.
     """
 
     async def async_step_init(
         self,
         user_input: dict[str, Any] | None = None,
     ):
-        """Choose this vehicle's trim and exterior color."""
+        """Choose the vehicle's trim/color and the PIN block, together."""
+        errors: dict[str, str] = {}
+
         if user_input is not None:
-            return self.async_create_entry(
-                title="",
-                data=user_input,
-            )
+            errors = await self._async_validate_pin_block(user_input)
+
+            if not errors:
+                if not user_input.get(CONF_PIN_ENABLED):
+                    # Disabling the block always starts fresh next
+                    # time — no stale PIN, mode or duration left
+                    # over from a previous configuration.
+                    user_input[CONF_CONTROL_PIN] = None
+                    user_input[CONF_PIN_MODE] = DEFAULT_PIN_MODE
+                    user_input[CONF_ARM_DURATION] = str(
+                        DEFAULT_ARM_DURATION_SECONDS
+                    )
+                    user_input[CONF_ARM_NOTIFY] = DEFAULT_ARM_NOTIFY
+
+                return self.async_create_entry(
+                    title="",
+                    data=user_input,
+                )
 
         current_trim = self.config_entry.options.get(
             CONF_VEHICLE_TRIM
         )
         current_color = self.config_entry.options.get(
             CONF_VEHICLE_COLOR
+        )
+        current_pin_enabled = self.config_entry.options.get(
+            CONF_PIN_ENABLED, False
+        )
+        current_pin_mode = self.config_entry.options.get(
+            CONF_PIN_MODE, DEFAULT_PIN_MODE
+        )
+        current_arm_duration = str(
+            self.config_entry.options.get(
+                CONF_ARM_DURATION, DEFAULT_ARM_DURATION_SECONDS
+            )
+        )
+        current_arm_notify = self.config_entry.options.get(
+            CONF_ARM_NOTIFY, DEFAULT_ARM_NOTIFY
         )
 
         schema = vol.Schema(
@@ -396,10 +437,97 @@ class DeepalSpainOptionsFlow(config_entries.OptionsFlow):
                         mode=selector.SelectSelectorMode.DROPDOWN,
                     )
                 ),
+                vol.Required(
+                    CONF_PIN_ENABLED,
+                    default=current_pin_enabled,
+                ): selector.BooleanSelector(),
+                vol.Optional(
+                    CONF_CONTROL_PIN,
+                    description={
+                        "suggested_value": (
+                            self.config_entry.options.get(
+                                CONF_CONTROL_PIN
+                            )
+                        )
+                    },
+                ): selector.TextSelector(
+                    selector.TextSelectorConfig(
+                        type=selector.TextSelectorType.PASSWORD
+                    )
+                ),
+                vol.Required(
+                    CONF_PIN_MODE,
+                    default=current_pin_mode,
+                ): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=[
+                            selector.SelectOptionDict(
+                                value=key,
+                                label=label,
+                            )
+                            for key, label in PIN_MODES.items()
+                        ],
+                        mode=selector.SelectSelectorMode.DROPDOWN,
+                    )
+                ),
+                vol.Required(
+                    CONF_ARM_DURATION,
+                    default=current_arm_duration,
+                ): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=[
+                            selector.SelectOptionDict(
+                                value=value,
+                                label=f"{value} segundos",
+                            )
+                            for value in ARM_DURATION_OPTIONS
+                        ],
+                        mode=selector.SelectSelectorMode.DROPDOWN,
+                    )
+                ),
+                vol.Required(
+                    CONF_ARM_NOTIFY,
+                    default=current_arm_notify,
+                ): selector.BooleanSelector(),
             }
         )
 
         return self.async_show_form(
             step_id="init",
             data_schema=schema,
+            errors=errors,
         )
+
+    async def _async_validate_pin_block(
+        self,
+        user_input: dict[str, Any],
+    ) -> dict[str, str]:
+        """Verify the PIN against the real account when enabling the block.
+
+        Only runs the check when CONF_PIN_ENABLED is being turned on
+        with a PIN provided — disabling the block, or resubmitting the
+        form with it already enabled and the PIN field left as-is,
+        never re-verifies. On success, caches the resulting rcToken
+        on the live API client so the very first PIN-gated command
+        doesn't need to exchange one all over again.
+        """
+        if not user_input.get(CONF_PIN_ENABLED):
+            return {}
+
+        pin_value = user_input.get(CONF_CONTROL_PIN)
+
+        if not pin_value:
+            return {"base": "pin_required"}
+
+        coordinator = self.hass.data[DOMAIN][
+            self.config_entry.entry_id
+        ]
+
+        try:
+            await coordinator.api.check_control_code(pin_value)
+        except DeepalRateLimitError:
+            return {"base": "pin_rate_limited"}
+        except DeepalApiError:
+            return {"base": "pin_invalid"}
+
+        return {}

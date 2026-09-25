@@ -8,6 +8,34 @@ Las versiones `bN` son betas (pre-release en GitHub).
 
 ---
 
+## 1.3.1b14
+
+**Comandos con PIN: puertas, ventanillas y maletero.** Bloque completo,
+desactivado por defecto — ver [`docs/remote-control.md`](docs/remote-control.md),
+sección 5, para el diseño detallado.
+
+| Entidad | Tipo | Estado |
+| --- | --- | --- |
+| Bloqueo de puertas | lock | ⚠️ sin confirmar con el coche real |
+| Maletero | cover | ⚠️ sin confirmar con el coche real |
+| Ventanilla Delantera/Trasera Izquierda/Derecha (4) | cover | ⚠️ sin confirmar; forma exacta del payload por ventanilla también sin confirmar |
+| Desbloqueo Acciones PIN | lock | Solo con la Opción B — candado de armado, nunca envía comandos al coche |
+
+**Cómo activarlo:** en *Configurar*, activa "PIN de control remoto habilitado"
+e introduce el PIN creado desde la app oficial con la misma cuenta — se
+verifica en el momento contra el servidor, y no se activa si es incorrecto.
+Elige después entre Opción A (comandos directos) y Opción B (hace falta
+desbloquear "Desbloqueo Acciones PIN" primero, con rebloqueo automático
+pasado el tiempo configurado).
+
+**Otros cambios**
+
+- Las entidades `lock`/`cover` conviven con los `binary_sensor` de solo
+  lectura que ya existían para puertas/ventanillas/maletero desde v1.3.1b13.
+- Nuevos tests: `tests/test_api.py` (intercambio y renovación del `rcToken`),
+  `tests/test_coordinator.py` (decisión de bloqueo por armado),
+  `tests/test_config_flow.py` (verificación del PIN al activarlo).
+
 ## 1.3.1b13
 
 **Nuevas entidades (solo lectura).** Todos los datos llegan ya en el MQTT

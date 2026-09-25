@@ -10,12 +10,14 @@ from datetime import timedelta
 import logging
 from typing import Any
 
+from homeassistant.components import persistent_notification
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import (
     ConfigEntryAuthFailed,
     HomeAssistantError,
 )
+from homeassistant.helpers.event import async_call_later
 from homeassistant.helpers.update_coordinator import (
     DataUpdateCoordinator,
     UpdateFailed,
@@ -25,8 +27,15 @@ from .api import DeepalApiClient, DeepalApiError, DeepalAuthError
 from .auth import DeepalAuthenticator
 from .const import (
     CONF_ACCESS_TOKEN,
+    CONF_ARM_DURATION,
+    CONF_ARM_NOTIFY,
     CONF_CAC_TOKEN,
+    CONF_PIN_MODE,
     CONF_REFRESH_TOKEN,
+    DEFAULT_ARM_DURATION_SECONDS,
+    DEFAULT_ARM_NOTIFY,
+    DEFAULT_PIN_MODE,
+    PIN_MODE_SAFE,
 )
 from .models import (
     DeepalSession,
@@ -89,6 +98,27 @@ def _classify_command_result(payload: dict[str, Any]) -> str:
     return _COMMAND_RESULT_CODES.get(code, "failed")
 
 
+def _is_command_blocked_by_arming(
+    *,
+    pin_mode: str,
+    is_armed: bool,
+    requires_arming: bool,
+) -> bool:
+    """Decide whether a PIN-gated command should be refused right now.
+
+    Only relevant for commands that opt in with requires_arming=True
+    (doors, windows, trunk). In "Opción A" (unsafe), nothing is ever
+    blocked here — the PIN itself, exchanged for an rcToken, is
+    already the only gate. In "Opción B" (safe), the command is
+    blocked unless the "Desbloqueo Acciones PIN" lock has been
+    unlocked (armed) and its window hasn't expired yet.
+    """
+    if not requires_arming:
+        return False
+
+    return pin_mode == PIN_MODE_SAFE and not is_armed
+
+
 class DeepalSpainCoordinator(
     DataUpdateCoordinator[DeepalTelemetry]
 ):
@@ -132,6 +162,95 @@ class DeepalSpainCoordinator(
         # all, so it can always run immediately regardless of what
         # else is in flight.
         self._command_lock = asyncio.Lock()
+
+        # "Opción B" (safe) PIN mode: whether a PIN-gated command
+        # (doors/windows/trunk) needs the "Desbloqueo Acciones PIN"
+        # lock unlocked first. Read from Options; entry.options is a
+        # snapshot taken at coordinator construction time — since
+        # changing any option already reloads the whole entry (see
+        # __init__.py's _async_options_updated), a fresh coordinator
+        # with fresh values is created whenever these change.
+        self._pin_mode = entry.options.get(
+            CONF_PIN_MODE, DEFAULT_PIN_MODE
+        )
+        self._arm_duration_seconds = int(
+            entry.options.get(
+                CONF_ARM_DURATION, DEFAULT_ARM_DURATION_SECONDS
+            )
+        )
+        self._arm_notify = entry.options.get(
+            CONF_ARM_NOTIFY, DEFAULT_ARM_NOTIFY
+        )
+
+        # Always starts locked/disarmed on every Home Assistant
+        # restart or reload — arming state is never persisted or
+        # restored on purpose.
+        self._is_armed = False
+        self._arm_unsub: Callable[[], None] | None = None
+
+    @property
+    def is_armed(self) -> bool:
+        """Return whether PIN-gated commands are currently armed.
+
+        Only meaningful in "Opción B" (safe) mode; ignored entirely
+        in "Opción A".
+        """
+        return self._is_armed
+
+    @callback
+    def async_arm(self) -> None:
+        """Arm PIN-gated commands for the configured duration.
+
+        Several commands can be sent within the window, not just one
+        — arming doesn't consume itself after the first command.
+        Re-arming (e.g. unlocking again before the previous window
+        expired) simply restarts the countdown from the configured
+        duration.
+        """
+        self._cancel_arm_timeout()
+
+        self._is_armed = True
+        self._arm_unsub = async_call_later(
+            self.hass,
+            self._arm_duration_seconds,
+            self._async_handle_arm_timeout,
+        )
+
+        if self._arm_notify:
+            persistent_notification.async_create(
+                self.hass,
+                "Comandos con PIN desbloqueados durante "
+                f"{self._arm_duration_seconds} segundos.",
+                title="Deepal — Desbloqueo Acciones PIN",
+                notification_id=(
+                    f"deepal_arm_{self.vehicle.vehicle_id}"
+                ),
+            )
+
+        self.async_update_listeners()
+
+    @callback
+    def async_disarm(self) -> None:
+        """Re-lock PIN-gated commands immediately.
+
+        Used both for a manual re-lock (before the window expires)
+        and internally when the window itself times out.
+        """
+        self._cancel_arm_timeout()
+        self._is_armed = False
+        self.async_update_listeners()
+
+    @callback
+    def _async_handle_arm_timeout(self, _now: Any) -> None:
+        """Re-lock automatically once the arm window has elapsed."""
+        self._arm_unsub = None
+        self.async_disarm()
+
+    def _cancel_arm_timeout(self) -> None:
+        """Cancel a pending auto-relock timer, if any."""
+        if self._arm_unsub is not None:
+            self._arm_unsub()
+            self._arm_unsub = None
 
     async def _async_update_data(
         self,
@@ -295,8 +414,17 @@ class DeepalSpainCoordinator(
         refresh_after: bool = True,
         max_retries: int = 3,
         retry_delay: float = 2.0,
+        requires_arming: bool = False,
     ) -> None:
         """Run a signed remote command and translate failures for entities.
+
+        requires_arming=True is for the PIN-gated commands (doors,
+        windows, trunk): in "Opción B" (safe) PIN mode, refuses the
+        command outright unless "Desbloqueo Acciones PIN" has been
+        unlocked and its window hasn't expired — see
+        _is_command_blocked_by_arming(). Ignored entirely in "Opción
+        A" (unsafe) or when the PIN block isn't enabled at all, and
+        for every command that doesn't pass it (the vast majority).
 
         command_factory is a zero-argument callable that returns a
         *fresh* coroutine each time it's called (e.g.
@@ -341,6 +469,16 @@ class DeepalSpainCoordinator(
         approach (still no rollback if the command silently no-ops
         server-side despite being accepted).
         """
+        if _is_command_blocked_by_arming(
+            pin_mode=self._pin_mode,
+            is_armed=self._is_armed,
+            requires_arming=requires_arming,
+        ):
+            raise HomeAssistantError(
+                "Antes de usar este comando, desbloquea primero "
+                '"Desbloqueo Acciones PIN".'
+            )
+
         if serialize is None:
             serialize = optimistic_update is not None
 

@@ -69,13 +69,23 @@
   "options": {
     "step": {
       "init": {
-        "title": "Versión y color del vehículo",
-        "description": "Elige la versión y el color de tu Deepal S05 para mostrar la foto exacta en vez de una genérica. Ambos son opcionales.",
+        "title": "Versión, color y control con PIN",
+        "description": "Elige la versión y el color de tu Deepal S05 para mostrar la foto exacta en vez de una genérica (ambos opcionales). Más abajo, activa el control remoto con PIN (puertas, ventanillas, maletero) si quieres usarlo — desactivado por defecto. El PIN debe haberse creado antes desde la app oficial, con la misma cuenta con la que inicias sesión aquí.",
         "data": {
           "vehicle_trim": "Versión",
-          "vehicle_color": "Color"
+          "vehicle_color": "Color",
+          "pin_enabled": "PIN de control remoto habilitado",
+          "control_pin": "PIN de control remoto",
+          "pin_mode": "Modo de comandos con PIN",
+          "arm_duration_seconds": "Duración del desbloqueo (Opción B)",
+          "arm_notify": "Avisar al desbloquear (Opción B)"
         }
       }
+    },
+    "error": {
+      "pin_required": "Introduce el PIN de control para activar este bloque.",
+      "pin_invalid": "El PIN no es válido, o no se creó con la cuenta que usa esta integración.",
+      "pin_rate_limited": "Demasiados intentos de PIN; espera a que se levante el bloqueo o restablece el PIN en la app oficial."
     }
   }
 }

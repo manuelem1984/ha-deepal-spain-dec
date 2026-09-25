@@ -15,6 +15,10 @@ está en [`CHANGELOG.md`](../CHANGELOG.md).
 - [ ] Luces y claxon a la vez.
 - [ ] Calefacción y ventilación de asientos, volante calefactado y desempañado.
 - [ ] Temperatura del climatizador grado a grado frente a la app oficial.
+- [ ] **Comandos con PIN:** bloqueo/desbloqueo de puertas, maletero, y cada
+      ventanilla individualmente (confirmar en especial si el nombre de campo
+      por posición que usamos para las ventanillas es correcto). Ver
+      `remote-control.md`, sección 5.
 
 ## Mejoras técnicas
 
@@ -25,11 +29,17 @@ está en [`CHANGELOG.md`](../CHANGELOG.md).
 - [ ] Investigar `windMode` y `runTime` del comando de climatización.
 - [ ] Dar significado a las candidatas de `telemetry-parameters.md` (tapa de
       carga, recirculación, testigos del cuadro...).
+- [ ] Las nuevas entidades `lock`/`cover` de puertas/ventanillas/maletero
+      conviven con los `binary_sensor` de solo lectura que ya existían para lo
+      mismo desde v1.3.1b13 — valorar si merece la pena unificarlos en el
+      futuro, una vez confirmadas contra el coche real.
 
 ## Funcionalidades nuevas
 
-- [ ] **Comandos con PIN:** puertas, ventanillas y maletero (el bloque grande
-      pendiente). Ver `remote-control.md`, sección 5.
+- [x] **Comandos con PIN:** puertas, ventanillas y maletero — implementado en
+      v1.3.1 con el diseño completo (activación con verificación del PIN,
+      Opción A/B, candado "Desbloqueo Acciones PIN"). Ver `remote-control.md`,
+      sección 5. Pendiente de confirmar con el coche real — ver más arriba.
 - [ ] Multiidioma y multipaís (selección de país en la configuración,
       traducciones completas de los nombres de entidad).
 - [ ] Tarjeta/panel para el coche con foto, datos y comandos juntos. Un primer

@@ -24,6 +24,7 @@ from custom_components.deepal_spain_dec.api import DeepalApiClient
 from custom_components.deepal_spain_dec.api_errors import (
     DeepalApiError,
     DeepalCommandNotReady,
+    DeepalRateLimitError,
 )
 
 
@@ -244,5 +245,208 @@ def test_get_serial_number_raises_when_response_is_not_a_string():
 
         with pytest.raises(DeepalApiError):
             await client.get_serial_number()
+
+    asyncio.run(run())
+
+
+# ------------------------------------------------------------------
+# PIN-gated commands (doors, windows, trunk) — see
+# docs/remote-control.md, "Comandos con PIN".
+# ------------------------------------------------------------------
+
+
+def test_pin_gated_command_without_pin_raises_not_ready():
+    async def run():
+        session = FakeSession([])
+        client = DeepalApiClient(
+            session, device_id="dev-1", access_token="tok"
+        )
+        # No private key AND no control_pin set — either alone would
+        # already refuse this, but control_pin is checked first for
+        # a PIN-gated command.
+        client.private_key_pem = "unused"
+
+        with pytest.raises(DeepalCommandNotReady):
+            await client.control_doors("veh-123", True)
+
+        # Must fail before ever contacting the server.
+        assert session.requests == []
+
+    asyncio.run(run())
+
+
+def test_control_doors_exchanges_pin_and_signs_rc_token(
+    private_key_pem,
+):
+    """No cached rc_token: exchanges the PIN first, then signs with it."""
+    pem, private_key = private_key_pem
+    serial = "FAKE-SERIAL-1234567890"
+
+    async def run():
+        session = FakeSession(
+            [
+                FakeResponse(
+                    {"success": True, "data": {"retryQuantity": 5}}
+                ),
+                FakeResponse(
+                    {"success": True, "data": {"rcToken": "rc-1"}}
+                ),
+                FakeResponse(
+                    _encrypted_serial_response(private_key, serial)
+                ),
+                FakeResponse(
+                    {
+                        "success": True,
+                        "data": {"commandId": "cmd-doors-1"},
+                    }
+                ),
+            ]
+        )
+        client = DeepalApiClient(
+            session,
+            device_id="dev-1",
+            access_token="tok",
+            private_key_pem=pem,
+        )
+        client.control_pin = "1234"
+
+        command_id = await client.control_doors("veh-123", True)
+
+        assert command_id == "cmd-doors-1"
+        assert len(session.requests) == 4
+        assert client.rc_token == "rc-1"
+
+        sent_payload = session.sent_json(3)
+        assert sent_payload["rcToken"] == "rc-1"
+        assert sent_payload["lock"] is True
+        assert sent_payload["command"] == "doors"
+
+        # rcToken is part of what gets signed too, not a separate step.
+        signature = base64.b64decode(sent_payload["sign"])
+        canonical = "&".join(
+            f"{key}={str(sent_payload[key]).lower() if isinstance(sent_payload[key], bool) else sent_payload[key]}"
+            for key in sorted(sent_payload)
+            if key not in {"sign", "class", "command"}
+        )
+        private_key.public_key().verify(
+            signature,
+            canonical.encode(),
+            padding.PKCS1v15(),
+            hashes.SHA256(),
+        )
+
+    asyncio.run(run())
+
+
+def test_control_trunk_reuses_cached_rc_token(private_key_pem):
+    """A cached rc_token skips the PIN exchange entirely."""
+    pem, private_key = private_key_pem
+    serial = "FAKE-SERIAL-1234567890"
+
+    async def run():
+        session = FakeSession(
+            [
+                FakeResponse(
+                    _encrypted_serial_response(private_key, serial)
+                ),
+                FakeResponse(
+                    {
+                        "success": True,
+                        "data": {"commandId": "cmd-trunk-1"},
+                    }
+                ),
+            ]
+        )
+        client = DeepalApiClient(
+            session,
+            device_id="dev-1",
+            access_token="tok",
+            private_key_pem=pem,
+        )
+        client.control_pin = "1234"
+        client.rc_token = "rc-cached"
+
+        command_id = await client.control_trunk("veh-123", True)
+
+        assert command_id == "cmd-trunk-1"
+        # Only the serial number and the command itself — no PIN
+        # exchange calls at all.
+        assert len(session.requests) == 2
+
+    asyncio.run(run())
+
+
+def test_control_windows_refreshes_stale_rc_token_and_retries_once(
+    private_key_pem,
+):
+    """A reused rc_token rejected by the server is refreshed and retried."""
+    pem, private_key = private_key_pem
+    serial = "FAKE-SERIAL-1234567890"
+
+    async def run():
+        session = FakeSession(
+            [
+                FakeResponse(
+                    _encrypted_serial_response(private_key, serial)
+                ),
+                FakeResponse(
+                    {
+                        "success": False,
+                        "code": "COMMON_1_1_01_099",
+                        "msg": "rcToken expired",
+                    }
+                ),
+                FakeResponse(
+                    {"success": True, "data": {"retryQuantity": 5}}
+                ),
+                FakeResponse(
+                    {"success": True, "data": {"rcToken": "rc-new"}}
+                ),
+                FakeResponse(
+                    {
+                        "success": True,
+                        "data": {"commandId": "cmd-windows-1"},
+                    }
+                ),
+            ]
+        )
+        client = DeepalApiClient(
+            session,
+            device_id="dev-1",
+            access_token="tok",
+            private_key_pem=pem,
+        )
+        client.control_pin = "1234"
+        client.rc_token = "rc-old"
+
+        command_id = await client.control_windows(
+            "veh-123", window="leftFront", open_window=True
+        )
+
+        assert command_id == "cmd-windows-1"
+        assert client.rc_token == "rc-new"
+        assert session.sent_json(4)["rcToken"] == "rc-new"
+
+    asyncio.run(run())
+
+
+def test_check_control_code_refuses_locally_when_no_attempts_left():
+    async def run():
+        session = FakeSession(
+            [
+                FakeResponse(
+                    {"success": True, "data": {"retryQuantity": 0}}
+                ),
+            ]
+        )
+        client = DeepalApiClient(
+            session, device_id="dev-1", access_token="tok"
+        )
+
+        with pytest.raises(DeepalRateLimitError):
+            await client.check_control_code("1234")
+
+        # Never even tries to submit the PIN itself.
+        assert len(session.requests) == 1
 
     asyncio.run(run())
