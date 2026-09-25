@@ -56,9 +56,22 @@ cacheada indefinidamente.
 
 ## Iconos disponibles
 
-| Entidad | Icono | Origen |
+| Entidad | Icono (encendido / apagado) | Origen |
 | --- | --- | --- |
 | Volante calefactado (`switch.steering_wheel_heat`) | `dec:steering-wheel-heat` | [Material Symbols](https://icon-sets.iconify.design/material-symbols/steering-wheel-heat/) (Google, Apache 2.0) |
+| Luz Intermitente Izquierdo | `dec:arrow-circle-left` / `dec:arrow-circle-left-outline` | [Material Symbols](https://icon-sets.iconify.design/material-symbols/arrow-circle-left/) (Apache 2.0) |
+| Luz Intermitente Derecho | `dec:arrow-circle-right` / `dec:arrow-circle-right-outline` | [Material Symbols](https://icon-sets.iconify.design/material-symbols/arrow-circle-right/) (Apache 2.0) |
+| Luz de carretera | `dec:car-light-full-on` / `dec:car-light-full-off` | [line-md](https://icon-sets.iconify.design/line-md/car-light-filled/) (MIT) — reconstruido, ver `icons/README.md` |
+| Luz de cruce | `dec:car-light-dimmed-on` / `dec:car-light-dimmed-off` | [line-md](https://icon-sets.iconify.design/line-md/car-light-dimmed-filled/) (MIT) — reconstruido |
+| Luz de posición | `dec:car-light-parking-on` / `dec:car-light-parking-off` | [line-md](https://icon-sets.iconify.design/line-md/car-light-twotone/) (MIT) — reconstruido |
+
+Los 6 iconos "car-light-\*" **no son una extracción directa** de su SVG de
+origen — ese SVG está animado (máscara + SMIL), incompatible con nuestro
+formato de icono estático. Son una reconstrucción manual de cómo queda el
+icono una vez asentada la animación, verificada renderizando ambas
+versiones con un navegador real y comparando las capturas — ver el detalle
+completo, y por qué las tres luces (carretera/cruce/posición) tienen un
+número de "rayos" distinto a propósito, en `icons/README.md`.
 
 ## Cómo añadir un icono nuevo
 

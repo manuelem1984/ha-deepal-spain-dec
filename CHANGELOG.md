@@ -8,6 +8,28 @@ Las versiones `bN` son betas (pre-release en GitHub).
 
 ---
 
+## 1.3.1b18
+
+**Más iconos personalizados y ajustes de iconos existentes.** Confirmado
+por el usuario: el icono del volante calefactado (v1.3.1b15) funciona
+perfectamente en un navegador real.
+
+- **Bloqueo de puertas**: `mdi:car-door-lock` / `mdi:car-door-lock-open`
+  según esté bloqueado o no.
+- **Desbloqueo Acciones PIN**: `mdi:lock` / `mdi:lock-open-outline`.
+- **Luz Intermitente Izquierdo/Derecho**: iconos de flecha circular
+  (`dec:arrow-circle-left`/`-right`, Material Symbols).
+- **Presión de neumático** (las 4 entidades): `mdi:car-tire-alert`.
+- **Motor - Estado**: `mdi:engine` / `mdi:engine-off-outline`.
+- **Luz de carretera/cruce/posición**: 3 iconos nuevos reconstruidos a
+  partir de `line-md` (que son SVG animados, incompatibles con nuestro
+  formato de icono estático) — ver `docs/custom-icons.md` para el
+  detalle completo de cómo se ha hecho esta reconstrucción, verificada
+  visualmente con un navegador real antes de darla por buena.
+- `tests/test_frontend_icons.py` ampliado para distinguir iconos
+  "simples" (comparables byte a byte con su SVG) de "reconstruidos"
+  (verificados de otra forma, ver el propio test).
+
 ## 1.3.1b17
 
 **Arreglo de validación (`hassfest`).** Sin cambios de comportamiento.

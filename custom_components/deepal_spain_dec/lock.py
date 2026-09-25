@@ -98,6 +98,15 @@ class DeepalSpainDoorLock(
 
         return not unlocked
 
+    @property
+    def icon(self) -> str:
+        """Return a lock/unlock-shaped icon matching the actual state."""
+        return (
+            "mdi:car-door-lock"
+            if self.is_locked
+            else "mdi:car-door-lock-open"
+        )
+
     async def async_lock(self, **kwargs: Any) -> None:
         """Lock every door."""
         await self._async_set_locked(True)
@@ -142,7 +151,6 @@ class DeepalSpainArmLock(
     """
 
     _attr_name = "Desbloqueo Acciones PIN"
-    _attr_icon = "mdi:lock"
 
     def __init__(
         self,
@@ -155,6 +163,11 @@ class DeepalSpainArmLock(
     def is_locked(self) -> bool:
         """Return whether PIN-gated commands are currently blocked."""
         return not self.coordinator.is_armed
+
+    @property
+    def icon(self) -> str:
+        """Return a lock/unlock-shaped icon matching the actual state."""
+        return "mdi:lock" if self.is_locked else "mdi:lock-open-outline"
 
     async def async_lock(self, **kwargs: Any) -> None:
         """Re-lock PIN-gated commands immediately."""

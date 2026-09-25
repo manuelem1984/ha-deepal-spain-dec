@@ -60,6 +60,8 @@ BINARY_SENSOR_DESCRIPTIONS: tuple[
         translation_key="engine_on",
         name="Motor - Estado",
         device_class=BinarySensorDeviceClass.RUNNING,
+        icon_on="mdi:engine",
+        icon_off="mdi:engine-off-outline",
         value_fn=lambda data: data.engine_on,
     ),
     DeepalBinarySensorDescription(
@@ -242,6 +244,8 @@ BINARY_SENSOR_DESCRIPTIONS: tuple[
         translation_key="high_beam",
         name="Luz de carretera",
         device_class=BinarySensorDeviceClass.LIGHT,
+        icon_on="dec:car-light-full-on",
+        icon_off="dec:car-light-full-off",
         value_fn=lambda data: data.high_beam,
     ),
     DeepalBinarySensorDescription(
@@ -249,6 +253,8 @@ BINARY_SENSOR_DESCRIPTIONS: tuple[
         translation_key="low_beam",
         name="Luz de cruce",
         device_class=BinarySensorDeviceClass.LIGHT,
+        icon_on="dec:car-light-dimmed-on",
+        icon_off="dec:car-light-dimmed-off",
         value_fn=lambda data: data.low_beam,
     ),
     DeepalBinarySensorDescription(
@@ -256,6 +262,8 @@ BINARY_SENSOR_DESCRIPTIONS: tuple[
         translation_key="position_lamp",
         name="Luz de posición",
         device_class=BinarySensorDeviceClass.LIGHT,
+        icon_on="dec:car-light-parking-on",
+        icon_off="dec:car-light-parking-off",
         value_fn=lambda data: data.position_lamp,
     ),
     DeepalBinarySensorDescription(
@@ -263,6 +271,8 @@ BINARY_SENSOR_DESCRIPTIONS: tuple[
         translation_key="left_indicator",
         name="Luz Intermitente Izquierdo",
         device_class=BinarySensorDeviceClass.LIGHT,
+        icon_on="dec:arrow-circle-left",
+        icon_off="dec:arrow-circle-left-outline",
         value_fn=lambda data: data.left_indicator,
     ),
     DeepalBinarySensorDescription(
@@ -270,6 +280,8 @@ BINARY_SENSOR_DESCRIPTIONS: tuple[
         translation_key="right_indicator",
         name="Luz Intermitente Derecho",
         device_class=BinarySensorDeviceClass.LIGHT,
+        icon_on="dec:arrow-circle-right",
+        icon_off="dec:arrow-circle-right-outline",
         value_fn=lambda data: data.right_indicator,
     ),
     DeepalBinarySensorDescription(
