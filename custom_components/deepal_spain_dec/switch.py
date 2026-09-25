@@ -45,7 +45,10 @@ SWITCH_DESCRIPTIONS: tuple[DeepalSwitchDescription, ...] = (
         key="steering_wheel_heat",
         translation_key="steering_wheel_heat",
         name="Volante calefactado",
-        icon="mdi:steering",
+        # Custom "dec:" icon set (Material Design Icons has nothing
+        # steering-wheel-plus-heat specific) — see
+        # frontend_icons.py and icons/README.md.
+        icon="dec:steering-wheel-heat",
         value_fn=lambda data: data.steering_wheel_heat_on,
         optimistic_field="steering_wheel_heat_on",
         api_method_name="control_steering_wheel_heat",

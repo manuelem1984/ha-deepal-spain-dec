@@ -15,6 +15,9 @@ está en [`CHANGELOG.md`](../CHANGELOG.md).
 - [ ] Luces y claxon a la vez.
 - [ ] Calefacción y ventilación de asientos, volante calefactado y desempañado.
 - [ ] Temperatura del climatizador grado a grado frente a la app oficial.
+- [ ] Comprobar en un navegador real que el icono personalizado
+      `dec:steering-wheel-heat` se ve correctamente en "Volante
+      calefactado" — ver `docs/custom-icons.md`.
 - [ ] **Comandos con PIN:** bloqueo/desbloqueo de puertas, maletero, y cada
       ventanilla individualmente (confirmar en especial si el nombre de campo
       por posición que usamos para las ventanillas es correcto). Ver

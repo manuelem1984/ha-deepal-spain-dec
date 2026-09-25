@@ -8,6 +8,21 @@ Las versiones `bN` son betas (pre-release en GitHub).
 
 ---
 
+## 1.3.1b15
+
+**Iconos personalizados ("dec:").** La integración sirve ahora su propio
+paquete de iconos para casos que Material Design Icons no cubre — ver
+[`docs/custom-icons.md`](docs/custom-icons.md).
+
+- **"Volante calefactado"** usa ahora `dec:steering-wheel-heat` (Material
+  Symbols de Google, Apache 2.0) en vez del genérico `mdi:steering`.
+- Nuevo módulo `frontend_icons.py`: registra el paquete de iconos una sola
+  vez por arranque de Home Assistant (nunca en cada recarga de la
+  integración, que es donde otras integraciones han tenido problemas reales
+  en esta misma versión de Home Assistant).
+- Nuevo test `tests/test_frontend_icons.py`: comprueba que cada SVG de
+  origen tiene su entrada correspondiente en el script generado.
+
 ## 1.3.1b14
 
 **Comandos con PIN: puertas, ventanillas y maletero.** Bloque completo,

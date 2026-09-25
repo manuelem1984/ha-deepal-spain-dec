@@ -27,7 +27,24 @@ from .const import (
     PLATFORMS,
 )
 from .coordinator import DeepalSpainCoordinator
+from . import frontend_icons
 from .models import DeepalSession, DeepalVehicle
+
+
+async def async_setup(
+    hass: HomeAssistant,
+    config: dict,
+) -> bool:
+    """Set up the Deepal Spain DEC integration (not entry-specific).
+
+    Called once at Home Assistant startup regardless of how many (if
+    any) config entries exist — the right place to register the
+    "dec:" custom icon set exactly once. See
+    frontend_icons.async_register_icons() for why this must not be
+    done from async_setup_entry() instead.
+    """
+    await frontend_icons.async_register_icons(hass)
+    return True
 
 
 async def async_setup_entry(
